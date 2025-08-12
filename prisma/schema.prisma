@@ -1,0 +1,347 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserRole {
+  ADMIN
+  DENTIST
+  ASSISTANT
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+}
+
+enum ProcedureCategory {
+  DIAGNOSTIC
+  PREVENTIVE
+  RESTORATIVE
+  ENDODONTICS
+  ORAL_SURGERY
+  PERIODONTICS
+  ORTHODONTICS
+  PROSTHODONTICS
+  COSMETIC
+  OTHER
+}
+
+enum AppointmentType {
+  CONSULTATION
+  CLEANING
+  FOLLOW_UP
+  EMERGENCY
+  ROUTINE_CHECKUP
+  TREATMENT
+  OTHER
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  CONFIRMED
+  IN_PROGRESS
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  RESCHEDULED
+}
+
+enum PaymentStatus {
+  PENDING
+  PARTIAL
+  PAID
+  REFUNDED
+  CANCELLED
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  CHECK
+  INSURANCE
+  BANK_TRANSFER
+  OTHER
+}
+
+model User {
+  id              String   @id @default(cuid())
+  email           String   @unique
+  password        String
+  name            String
+  role            UserRole
+  licenseNumber   String?
+  specialization  String?
+  phone           String?
+  isActive        Boolean  @default(true)
+  lastLoginAt     DateTime?
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  // Relations
+  patientsCreated   Patient[]     @relation("PatientCreatedBy")
+  treatments        Treatment[]   @relation("TreatmentDentist")
+  appointments      Appointment[] @relation("AppointmentDentist")
+  receiptsIssued    Receipt[]     @relation("ReceiptIssuedBy")
+  auditLogs         AuditLog[]
+
+  @@map("users")
+}
+
+model Patient {
+  id                        String    @id @default(cuid())
+  firstName                 String
+  lastName                  String
+  email                     String?   @unique
+  phone                     String
+  dateOfBirth               DateTime
+  gender                    Gender
+  address                   String?
+  city                      String?
+  state                     String?
+  zipCode                   String?
+  country                   String?   @default("USA")
+  
+  // Medical Information
+  bloodType                 String?
+  allergies                 String[]  @default([])
+  medications               String[]  @default([])
+  medicalHistory            String?
+  
+  // Insurance Information
+  insuranceProvider         String?
+  insurancePolicyNumber     String?
+  insuranceGroupNumber      String?
+  
+  // Emergency Contact
+  emergencyContactName      String?
+  emergencyContactPhone     String?
+  emergencyContactRelation  String?
+  
+  // Metadata
+  notes                     String?
+  isActive                  Boolean   @default(true)
+  lastVisitAt               DateTime?
+  createdAt                 DateTime  @default(now())
+  updatedAt                 DateTime  @updatedAt
+  createdById               String
+  
+  // Relations
+  createdBy     User          @relation("PatientCreatedBy", fields: [createdById], references: [id])
+  treatments    Treatment[]
+  appointments  Appointment[]
+
+  @@map("patients")
+}
+
+model Procedure {
+  id                        String            @id @default(cuid())
+  code                      String            @unique
+  name                      String
+  category                  ProcedureCategory
+  description               String?
+  defaultCost               Float
+  insuranceCost             Float?
+  estimatedDurationMinutes  Int?
+  isActive                  Boolean           @default(true)
+  createdAt                 DateTime          @default(now())
+  updatedAt                 DateTime          @updatedAt
+
+  // Relations
+  treatmentItems TreatmentItem[]
+
+  @@map("procedures")
+}
+
+model Treatment {
+  id             String        @id @default(cuid())
+  patientId      String
+  dentistId      String
+  
+  // Treatment Details
+  chiefComplaint String
+  diagnosis      String
+  treatmentPlan  String
+  notes          String?
+  
+  // Financial Information
+  totalCost      Float
+  paidAmount     Float         @default(0)
+  discount       Float         @default(0)
+  paymentStatus  PaymentStatus @default(PENDING)
+  paymentMethod  PaymentMethod?
+  
+  // Metadata
+  treatmentDate  DateTime
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  // Relations
+  patient Patient         @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  dentist User            @relation("TreatmentDentist", fields: [dentistId], references: [id])
+  items   TreatmentItem[]
+  receipt Receipt?
+
+  @@map("treatments")
+}
+
+model TreatmentItem {
+  id           String   @id @default(cuid())
+  treatmentId  String
+  procedureId  String
+  
+  // Tooth Information
+  toothNumbers Int[]    @default([])
+  toothSurfaces String[] @default([])
+  
+  // Item Details
+  quantity     Int      @default(1)
+  unitCost     Float
+  totalCost    Float
+  status       String   @default("PLANNED") // PLANNED, IN_PROGRESS, COMPLETED, CANCELLED
+  notes        String?
+  
+  // Metadata
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  // Relations
+  treatment Treatment @relation(fields: [treatmentId], references: [id], onDelete: Cascade)
+  procedure Procedure @relation(fields: [procedureId], references: [id])
+
+  @@map("treatment_items")
+}
+
+model Appointment {
+  id               String            @id @default(cuid())
+  patientId        String
+  dentistId        String
+  
+  // Appointment Details
+  appointmentDate  DateTime
+  durationMinutes  Int               @default(30)
+  type             AppointmentType
+  reason           String
+  notes            String?
+  status           AppointmentStatus @default(SCHEDULED)
+  
+  // Reminder Information
+  reminderSent     Boolean           @default(false)
+  reminderSentAt   DateTime?
+  
+  // Metadata
+  createdAt        DateTime          @default(now())
+  updatedAt        DateTime          @updatedAt
+
+  // Relations
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  dentist User    @relation("AppointmentDentist", fields: [dentistId], references: [id])
+
+  @@map("appointments")
+}
+
+model Receipt {
+  id              String        @id @default(cuid())
+  treatmentId     String        @unique
+  issuedById      String
+  
+  // Receipt Information
+  receiptNumber   String        @unique
+  subtotal        Float
+  discount        Float         @default(0)
+  tax             Float         @default(0)
+  totalAmount     Float
+  paidAmount      Float
+  balanceDue      Float         @default(0)
+  
+  // Payment Information
+  paymentMethod   PaymentMethod?
+  paymentDate     DateTime?
+  transactionId   String?
+  
+  // Digital Information
+  qrCode          String?
+  emailSent       Boolean       @default(false)
+  emailSentAt     DateTime?
+  emailAddress    String?
+  
+  // Status
+  status          String        @default("DRAFT") // DRAFT, SENT, PAID, CANCELLED
+  
+  // Metadata
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  // Relations
+  treatment Treatment @relation(fields: [treatmentId], references: [id], onDelete: Cascade)
+  issuedBy  User      @relation("ReceiptIssuedBy", fields: [issuedById], references: [id])
+
+  @@map("receipts")
+}
+
+model ClinicSettings {
+  id                    String  @id @default(cuid())
+  
+  // Clinic Information
+  clinicName            String
+  address               String?
+  city                  String?
+  state                 String?
+  zipCode               String?
+  country               String? @default("USA")
+  phone                 String?
+  email                 String?
+  website               String?
+  taxId                 String?
+  licenseNumber         String?
+  
+  // Working Hours (JSON)
+  workingHours          Json?
+  
+  // Appointment Settings
+  appointmentDuration   Int     @default(30)
+  appointmentBuffer     Int     @default(5)
+  
+  // Reminder Settings
+  reminderEnabled       Boolean @default(true)
+  reminderAdvanceHours  Int     @default(24)
+  
+  // Receipt Settings
+  receiptPrefix         String  @default("RCP")
+  receiptFooter         String?
+  
+  // Metadata
+  createdAt             DateTime @default(now())
+  updatedAt             DateTime @updatedAt
+
+  @@map("clinic_settings")
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  userEmail  String?
+  userName   String?
+  action     String   // CREATE, READ, UPDATE, DELETE
+  entityType String   // Patient, Treatment, etc.
+  entityId   String?
+  oldData    Json?
+  newData    Json?
+  ipAddress  String?
+  userAgent  String?
+  createdAt  DateTime @default(now())
+
+  // Relations
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@map("audit_logs")
+}
