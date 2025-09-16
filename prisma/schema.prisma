@@ -260,7 +260,7 @@ model AuditLog {
   entityId   String?
   oldData    Json?
   newData    Json?
-  newValue   String
+  newValue   String?
   ipAddress  String?
   userAgent  String?
   createdAt  DateTime @default(now())
