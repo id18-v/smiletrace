@@ -22,11 +22,7 @@ interface DashboardContentProps {
 }
 
 export default async  function DashboardContent({ user, children }: DashboardContentProps) {
-  const session = await auth()
-    
-    if (!session?.user) {
-      redirect("/login")
-    }
+  
   const router = useRouter()
   const { theme, setTheme } = useTheme()
   const [sidebarOpen, setSidebarOpen] = useState(false)
@@ -69,7 +65,7 @@ export default async  function DashboardContent({ user, children }: DashboardCon
           setTheme={setTheme}
           theme={theme || 'light'}
           setSidebarOpen={setSidebarOpen}
-          user={session?.user}
+          user={user}
           navigation={navWithCurrent}
           handleLogout={handleLogout}
           name={user?.name || 'Utilizator'}

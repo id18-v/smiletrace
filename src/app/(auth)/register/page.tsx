@@ -1,5 +1,6 @@
 // app/(auth)/register/page.tsx
 'use client'
+import { UserRole } from '@prisma/client'
 
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
@@ -19,7 +20,7 @@ const registerSchema = z.object({
   confirmPassword: z.string(),
   name: z.string().min(2, 'Numele trebuie să aibă minim 2 caractere'),
   phone: z.string().optional(),
-  role: z.enum(['DENTIST', 'ASSISTANT', 'ADMIN']),
+  role: z.nativeEnum(UserRole),
   licenseNumber: z.string().optional(),
   specialization: z.string().optional(),
 }).refine((data) => data.password === data.confirmPassword, {
@@ -161,7 +162,7 @@ export default function RegisterPage() {
                     {...register('name')}
                     type="text"
                     className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
-                    placeholder=""
+                    placeholder="Nume Prenume"
                     disabled={isLoading}
                   />
                 </div>
@@ -201,7 +202,7 @@ export default function RegisterPage() {
                     {...register('phone')}
                     type="tel"
                     className="w-full pl-10 pr-3 py-2 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500"
-                    placeholder=""
+                    placeholder="Numar"
                     disabled={isLoading}
                   />
                 </div>

@@ -1,10 +1,9 @@
 // src/services/treatment.service.ts
 
-import { PrismaClient, Prisma, PaymentStatus, PaymentMethod } from '@prisma/client';
 import { z } from 'zod';
-
+import { Prisma, PaymentStatus, PaymentMethod } from '@prisma/client';
+import  prisma  from '@/lib/db';
 // Initialize Prisma client
-const prisma = new PrismaClient();
 
 // Validation schemas
 const CreateTreatmentSchema = z.object({

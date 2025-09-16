@@ -1,7 +1,5 @@
 import { NextResponse } from 'next/server'
 import bcrypt from 'bcryptjs'
-import jwt from 'jsonwebtoken'
-import { cookies } from 'next/headers'
 import prisma from '@/lib/db'
 
 export async function POST(request: Request) {
@@ -56,26 +54,7 @@ export async function POST(request: Request) {
     }
 
     // Creează JWT token
-    const token = jwt.sign(
-      { 
-        userId: user.id, 
-        email: user.email,
-        role: user.role 
-      },
-      process.env.JWT_SECRET!,
-      { expiresIn: '7d' }
-    )
-    
-    // Setează cookie-ul
-    ;(await
-          // Setează cookie-ul
-          cookies()).set('auth-token', token, {
-      httpOnly: true,
-      secure: process.env.NODE_ENV === 'production',
-      sameSite: 'lax',
-      maxAge: 60 * 60 * 24 * 7 // 7 zile
-    })
-
+     
     // Audit log
     try {
       await prisma.auditLog.create({

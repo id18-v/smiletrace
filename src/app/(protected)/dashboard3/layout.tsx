@@ -64,9 +64,8 @@ export default function DashboardContent({ user, children }: DashboardContentPro
           setSidebarOpen={setSidebarOpen}
           user={user}
           navigation={navWithCurrent}
-          handleLogout={handleLogout}
-        />
-           
+          handleLogout={handleLogout} name={user?.name || 'Utilizator'}        />
+
         {/* Main Content */}
         <main className="p-6">
           {/* Debug - să vedem ce se întâmplă */}
