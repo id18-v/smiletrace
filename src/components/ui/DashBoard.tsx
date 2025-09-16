@@ -11,17 +11,17 @@ interface IAppPops{
     icon: ForwardRefExoticComponent<Omit<LucideProps, "ref"> & RefAttributes<SVGSVGElement>>;
 
 }
-export const dashboardLinks: IAppPops[] = [
+export const dashboardLinks = [
   {
     id: 0,
     name: "My Appointments",
-    href: "/dashboard/MyAppointments",
+    href: "/dashboard3/activity",
     icon: BookUser ,
   },
   {
     id: 1,
     name: "Quick Booking",
-    href: "/dashboard/QuickBooking",
+    href: "/dashboard3/Cal",
     icon: BookUser ,
   },
   {
@@ -36,12 +36,7 @@ export const dashboardLinks: IAppPops[] = [
     href: "/dashboard/settings",
     icon: Settings ,
   },
-   {
-    id: 4,
-    name: "Settings",
-    href: "/dashboard/settings",
-    icon: Settings ,
-  },
+  
   // Add more links as needed
 ];
 export function DashboardLinks() {
@@ -57,3 +52,11 @@ export function DashboardLinks() {
     </>
   );
 }
+/*  const navigation = [
+    { name: 'Dashboard', href: '/dashboard', icon: Activity, current: true },
+    { name: 'Programări', href: '/dashboard3/Cal', icon: Calendar, current: false },
+    { name: 'Pacienți', href: '/patients', icon: Users, current: false },
+    { name: 'Tratamente', href: '/treatments', icon: FileText, current: false },
+    { name: 'Rapoarte', href: '/reports', icon: TrendingUp, current: false },
+    { name: 'Setări', href: '/settings', icon: Settings, current: false },
+  ] */ 

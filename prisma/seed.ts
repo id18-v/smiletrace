@@ -477,7 +477,6 @@ async function main() {
         },
         ipAddress: "192.168.1.1",
         userAgent: "Mozilla/5.0",
-        newValue: ""
       },
       {
         userId: dentist1.id,
@@ -489,7 +488,6 @@ async function main() {
         newData: { patientId: patient1.id, totalCost: 200 },
         ipAddress: "192.168.1.1",
         userAgent: "Mozilla/5.0",
-        newValue: ""
       },
     ],
   });
