@@ -3,10 +3,12 @@
 import { X, Activity, LogOut } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 
+import { LucideIcon } from 'lucide-react'
+
 interface SidebarProps {
   sidebarOpen: boolean
   setSidebarOpen: (open: boolean) => void
-  navigation: { name: string; href: string; icon: any; current: boolean }[]
+  navigation: { name: string; href: string; icon: LucideIcon; current: boolean }[]
   handleLogout: () => void
 }
 

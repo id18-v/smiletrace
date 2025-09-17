@@ -1,80 +1,25 @@
-// app/dashboard3/dashboard-client.tsx - CLEAN VERSION
-'use client'
+// app/dashboard3/layout.tsx - ACEASTA ESTE VERSIUNEA CORECTĂ
+import { auth } from '@/lib/auth'
+import { redirect } from 'next/navigation'
+import DashboardContent from './dashboard-client'
 
-import { signOut } from 'next-auth/react'
-import { usePathname, useRouter } from 'next/navigation'
-import { useEffect, useState } from 'react'
-import { useTheme } from 'next-themes'
-import { dashboardLinks } from '@/components/ui/DashBoard'
-import Sidebar from '@/components/layout/sidebar'
-import { Header } from '@/components/layout/header'
-
-interface DashboardContentProps {
-  user: {
-    id: string
-    email: string
-    name?: string | null
-    role: string
-  }
+export default async function DashboardLayout({
+  children,
+}: {
   children: React.ReactNode
-}
-
-export default function DashboardContent({ user, children }: DashboardContentProps) {
-  const router = useRouter()
-  const { theme, setTheme } = useTheme()
-  const [sidebarOpen, setSidebarOpen] = useState(false)
-  const [mounted, setMounted] = useState(false)
+}) {
+  const session = await auth()
   
-  useEffect(() => {
-    setMounted(true)
-  }, [])
-  
-  const handleLogout = async () => {
-    try {
-      await signOut({ redirect: false })
-      router.push('/login')
-    } catch (error) {
-      console.error('Logout error:', error)
-    }
+  if (!session?.user) {
+    redirect("/login")
   }
 
-  const pathname = usePathname()
-  const navWithCurrent = dashboardLinks.map((item) => ({
-    ...item,
-    current: pathname === item.href,
-  }))
+  console.log('Layout - Session user:', session.user)
+  console.log('Layout - User name:', session.user.name)
 
   return (
-    <div className="min-h-screen bg-gray-50 dark:bg-gray-900">
-      {/* Sidebar */}
-      <Sidebar
-        sidebarOpen={sidebarOpen}
-        setSidebarOpen={setSidebarOpen}
-        navigation={navWithCurrent}
-        handleLogout={handleLogout}
-      />
-
-      {/* Main Content */}
-      <div className="lg:ml-64">
-        {/* Header - DOAR UNUL! */}
-        <Header
-          mounted={mounted}
-          setTheme={setTheme}
-          theme={theme || 'light'}
-          setSidebarOpen={setSidebarOpen}
-          user={user}
-          navigation={navWithCurrent}
-          handleLogout={handleLogout} name={user?.name || 'Utilizator'}        />
-
-        {/* Main Content */}
-        <main className="p-6">
-          {/* Debug - să vedem ce se întâmplă */}
-          
-          
-          {/* Conținutul real - fără wrapper care blochează */}
-          {children}
-        </main>
-      </div>
-    </div>
+    <DashboardContent user={session.user}>
+      {children}
+    </DashboardContent>
   )
 }

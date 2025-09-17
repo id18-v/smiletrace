@@ -9,6 +9,12 @@ export default async function ActivityPage() {
     redirect("/login")
   }
 
+  // DEBUG: Vezi ce date vin de la sesiune
+  console.log('Session data:', session)
+  console.log('User data:', session.user)
+  console.log('User name:', session.user.name)
+  console.log('User email:', session.user.email)
+
   return (
     <div className="w-full space-y-6">
       {/* Welcome Section */}

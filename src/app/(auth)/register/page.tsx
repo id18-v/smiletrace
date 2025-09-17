@@ -107,12 +107,13 @@ export default function RegisterPage() {
         }
       }, 1000)
       
-    } catch (error: any) {
-      console.error('Registration error:', error)
-      toast.error(error.message || 'A apărut o eroare. Încearcă din nou.')
-    } finally {
-      setIsLoading(false)
-    }
+   } catch (error: unknown) {
+  console.error('Registration error:', error)
+  const errorMessage = error instanceof Error ? error.message : 'A apărut o eroare. Încearcă din nou.'
+  toast.error(errorMessage)
+} finally {
+  setIsLoading(false)
+}
   }
 
   const handleGoogleSignIn = async () => {

@@ -592,14 +592,14 @@ class TreatmentService {
   /**
    * Helper: Create audit log
    */
-  private async createAuditLog(data: {
-    userId?: string;
-    action: string;
-    entityType: string;
-    entityId?: string;
-    oldData?: any;
-    newData?: any;
-  }) {
+private async createAuditLog(data: {
+   userId?: string;
+  action: string;
+  entityType: string;
+  entityId?: string;
+  oldData?: Prisma.InputJsonValue;
+  newData?: Prisma.InputJsonValue;
+}) {
     try {
       await prisma.auditLog.create({
         data: {

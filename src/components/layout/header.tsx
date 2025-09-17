@@ -33,9 +33,12 @@ export function Header({
   name,
   handleLogout 
 }: HeaderProps) {
+      console.log('Header - name prop:', name)
+  console.log('Header - user prop:', user)
+  console.log('Header - user.name:', user?.name)
   
-const userName =  user?.name && user.name.trim() !== '' ? user.name : 'Utilizator' 
- const userRole = user?.role || 'User'
+    const userName = name 
+  const userRole = user?.role || 'User'
   const userInitials = userName.split(' ').map(n => n[0]).join('').toUpperCase() || 'U'
 
   return (
