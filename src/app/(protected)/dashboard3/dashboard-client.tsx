@@ -8,8 +8,6 @@ import { useTheme } from 'next-themes'
 import { dashboardLinks } from '@/components/ui/DashBoard'
 import Sidebar from '@/components/layout/sidebar'
 import { Header } from '@/components/layout/header'
-import { auth } from '@/lib/auth'
-import { redirect } from 'next/navigation'
 
 interface DashboardContentProps {
   user: {
@@ -21,7 +19,9 @@ interface DashboardContentProps {
   children: React.ReactNode
 }
 
-export default async  function DashboardContent({ user, children }: DashboardContentProps) {
+export default  function DashboardContent({ user, children }: DashboardContentProps) {
+   console.log('DashboardContent - User prop:', user)
+  console.log('DashboardContent - User name:', user?.name)
   
   const router = useRouter()
   const { theme, setTheme } = useTheme()
