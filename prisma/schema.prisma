@@ -10,9 +10,8 @@ datasource db {
 
 // Optional for WebAuthn support
 
-
 // AUTH.JS MODELS - Add these for Google OAuth
- model Account {
+model Account {
   id                String  @id @default(cuid())
   userId            String  @map("user_id")
   type              String
@@ -269,6 +268,22 @@ model AuditLog {
   @@map("audit_logs")
 }
 
+model ReminderBatchLog {
+  id                String   @id @default(cuid())
+  startTime         DateTime
+  endTime           DateTime
+  totalAppointments Int
+  processed         Int
+  successful        Int
+  failed            Int
+  duration          Int
+  results           Json     // aici e mai bine Json decât String
+
+  createdAt         DateTime @default(now())
+
+  @@map("reminder_batch_logs")
+}
+
 enum UserRole {
   ADMIN
   DENTIST
@@ -330,19 +345,4 @@ enum PaymentMethod {
   INSURANCE
   BANK_TRANSFER
   OTHER
-}
-model ReminderBatchLog {
-  id                String   @id @default(cuid())
-  startTime         DateTime
-  endTime           DateTime
-  totalAppointments Int
-  processed         Int
-  successful        Int
-  failed            Int
-  duration          Int
-  results           Json     // aici e mai bine Json decât String
-
-  createdAt         DateTime @default(now())
-
-  @@map("reminder_batch_logs")
 }
