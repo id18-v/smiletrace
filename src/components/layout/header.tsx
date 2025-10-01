@@ -57,10 +57,7 @@ export function Header({
 
         {/* Page title - va fi hidden pe mobile */}
         <div className="hidden lg:block">
-          <h1 className="text-xl font-semibold text-gray-900 dark:text-white">
-            Dashboard
-            {name}
-          </h1>
+          
         </div>
 
         {/* Right side - User menu + theme toggle */}
