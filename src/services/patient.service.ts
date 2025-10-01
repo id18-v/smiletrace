@@ -1,1469 +1,814 @@
-// src/services/appointment.service.ts
+// src/services/patient.service.ts
+import prisma from '@/lib/db';
 import { 
-  PrismaClient, 
-  Appointment, 
-  AppointmentStatus, 
-  AppointmentType,
-  Prisma 
+  Prisma, 
+  Patient, 
+  Gender,
+  AppointmentStatus,
+  PaymentStatus 
 } from '@prisma/client';
 import { z } from 'zod';
-import { addDays, addHours, startOfDay, endOfDay, isWithinInterval, addMinutes, isBefore, isAfter, differenceInMinutes } from 'date-fns';
-
-// Initialize Prisma Client
-const prisma = new PrismaClient();
 
 // Validation schemas
-const CreateAppointmentSchema = z.object({
-  patientId: z.string(),
-  dentistId: z.string(),
-  appointmentDate: z.date().or(z.string().transform(str => new Date(str))),
-  durationMinutes: z.number().min(15).max(240).default(30),
-  type: z.nativeEnum(AppointmentType),
-  reason: z.string().min(1).max(500),
+export const createPatientSchema = z.object({
+  firstName: z.string().min(1, 'First name is required').max(100),
+  lastName: z.string().min(1, 'Last name is required').max(100),
+  email: z.string().email('Invalid email').optional().nullable(),
+  phone: z.string().min(10, 'Valid phone number required').max(20),
+  dateOfBirth: z.string().or(z.date()).transform(val => new Date(val)),
+  gender: z.nativeEnum(Gender),
+  address: z.string().max(255).optional().nullable(),
+  city: z.string().max(100).optional().nullable(),
+  state: z.string().max(50).optional().nullable(),
+  zipCode: z.string().max(20).optional().nullable(),
+  country: z.string().max(100).default('USA'),
+  bloodType: z.string().max(10).optional().nullable(),
+  allergies: z.array(z.string()).default([]),
+  medications: z.array(z.string()).default([]),
+  medicalHistory: z.string().optional().nullable(),
+  insuranceProvider: z.string().max(100).optional().nullable(),
+  insurancePolicyNumber: z.string().max(50).optional().nullable(),
+  insuranceGroupNumber: z.string().max(50).optional().nullable(),
+  emergencyContactName: z.string().max(100).optional().nullable(),
+  emergencyContactPhone: z.string().max(20).optional().nullable(),
+  emergencyContactRelation: z.string().max(50).optional().nullable(),
   notes: z.string().optional().nullable(),
-  status: z.nativeEnum(AppointmentStatus).default('SCHEDULED')
 });
 
-const UpdateAppointmentSchema = z.object({
-  appointmentDate: z.date().or(z.string().transform(str => new Date(str))).optional(),
-  durationMinutes: z.number().min(15).max(240).optional(),
-  type: z.nativeEnum(AppointmentType).optional(),
-  reason: z.string().min(1).max(500).optional(),
+export const updateMedicalHistorySchema = z.object({
+  bloodType: z.string().max(10).optional().nullable(),
+  allergies: z.array(z.string()).optional(),
+  medications: z.array(z.string()).optional(),
+  medicalHistory: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
-  status: z.nativeEnum(AppointmentStatus).optional()
 });
 
-const RescheduleAppointmentSchema = z.object({
-  newDate: z.date().or(z.string().transform(str => new Date(str))),
-  newDurationMinutes: z.number().min(15).max(240).optional(),
-  reason: z.string().optional()
-});
-
-const SearchAppointmentsSchema = z.object({
-  dentistId: z.string().optional(),
-  patientId: z.string().optional(),
-  status: z.nativeEnum(AppointmentStatus).optional(),
-  type: z.nativeEnum(AppointmentType).optional(),
-  dateFrom: z.date().or(z.string().transform(str => new Date(str))).optional(),
-  dateTo: z.date().or(z.string().transform(str => new Date(str))).optional(),
-  includePatient: z.boolean().default(true),
-  includeDentist: z.boolean().default(true),
+export const searchPatientsSchema = z.object({
+  query: z.string().optional(),
+  firstName: z.string().optional(),
+  lastName: z.string().optional(),
+  email: z.string().optional(),
+  phone: z.string().optional(),
+  dateOfBirth: z.string().optional(),
+  gender: z.nativeEnum(Gender).optional(),
+  city: z.string().optional(),
+  state: z.string().optional(),
+  insuranceProvider: z.string().optional(),
+  hasAllergies: z.boolean().optional(),
+  hasMedications: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+  createdAfter: z.string().optional(),
+  createdBefore: z.string().optional(),
+  lastVisitAfter: z.string().optional(),
+  lastVisitBefore: z.string().optional(),
   page: z.number().min(1).default(1),
   limit: z.number().min(1).max(100).default(20),
-  sortBy: z.enum(['appointmentDate', 'createdAt', 'status']).default('appointmentDate'),
-  sortOrder: z.enum(['asc', 'desc']).default('asc')
+  sortBy: z.enum(['createdAt', 'lastName', 'firstName', 'lastVisitAt']).default('lastName'),
+  sortOrder: z.enum(['asc', 'desc']).default('asc'),
+});
+
+export const bulkImportSchema = z.object({
+  patients: z.array(createPatientSchema),
+  options: z.object({
+    skipDuplicates: z.boolean().default(false),
+    updateExisting: z.boolean().default(false),
+  }).default({ skipDuplicates: false, updateExisting: false })
+});
+
+export const mergePatientSchema = z.object({
+  primaryPatientId: z.string().uuid(),
+  duplicatePatientId: z.string().uuid(),
 });
 
 // Types
-export type CreateAppointmentInput = z.infer<typeof CreateAppointmentSchema>;
-export type UpdateAppointmentInput = z.infer<typeof UpdateAppointmentSchema>;
-export type RescheduleAppointmentInput = z.infer<typeof RescheduleAppointmentSchema>;
-export type SearchAppointmentsInput = z.infer<typeof SearchAppointmentsSchema>;
+export type CreatePatientInput = z.infer<typeof createPatientSchema>;
+export type UpdateMedicalHistoryInput = z.infer<typeof updateMedicalHistorySchema>;
+export type SearchPatientsInput = z.infer<typeof searchPatientsSchema>;
+export type BulkImportInput = z.infer<typeof bulkImportSchema>;
+export type MergePatientInput = z.infer<typeof mergePatientSchema>;
 
-export interface TimeSlot {
-  start: Date;
-  end: Date;
-  available: boolean;
-  reason?: string;
-}
-
-export interface DentistAvailability {
-  date: Date;
-  slots: TimeSlot[];
-  totalAvailable: number;
-  totalBooked: number;
-}
-
-export interface AppointmentConflict {
-  appointment: Appointment;
-  conflictType: 'overlap' | 'buffer' | 'break';
-  message: string;
-}
-
-export interface AppointmentSearchResult {
-  data: Appointment[];
-  total: number;
-  page: number;
-  limit: number;
-  totalPages: number;
-}
-
-export interface ReminderResult {
-  appointmentId: string;
-  success: boolean;
-  error?: string;
-  sentAt?: Date;
-}
-
-export interface BatchReminderResult {
-  totalProcessed: number;
-  successful: number;
-  failed: number;
-  results: ReminderResult[];
-  batchLogId: string;
-}
-
-class AppointmentService {
+// Service Class
+export class PatientService {
   /**
-   * Create a new appointment with conflict checking
+   * Create a new patient with full validation and duplicate checking
    */
-  async createAppointment(data: CreateAppointmentInput, userId: string): Promise<Appointment> {
-    try {
-      const validatedData = CreateAppointmentSchema.parse(data);
+  static async createPatient(data: CreatePatientInput, createdById: string): Promise<Patient> {
+    // Validate input
+    const validatedData = createPatientSchema.parse(data);
 
-      // Check for conflicts before creating
-      const conflicts = await this.checkConflicts(
-        validatedData.dentistId,
-        validatedData.appointmentDate as Date,
-        validatedData.durationMinutes
-      );
-
-      if (conflicts.length > 0) {
-        const conflictMessages = conflicts.map(c => c.message).join(', ');
-        throw new Error(`Appointment conflicts detected: ${conflictMessages}`);
-      }
-
-      // Verify patient exists
-      const patient = await prisma.patient.findUnique({
-        where: { id: validatedData.patientId }
-      });
-
-      if (!patient) {
-        throw new Error('Patient not found');
-      }
-
-      // Verify dentist exists and is active
-      const dentist = await prisma.user.findUnique({
+    // Check for existing patient with same email (if provided)
+    if (validatedData.email) {
+      const existingEmail = await prisma.patient.findFirst({
         where: { 
-          id: validatedData.dentistId,
-          isActive: true
+          email: validatedData.email,
+          isActive: true 
         }
       });
-
-      if (!dentist) {
-        throw new Error('Dentist not found or inactive');
-      }
-
-      // Create appointment with transaction
-      const appointment = await prisma.$transaction(async (tx) => {
-        const newAppointment = await tx.appointment.create({
-          data: {
-            ...validatedData,
-            appointmentDate: validatedData.appointmentDate as Date,
-            createdAt: new Date(),
-            updatedAt: new Date()
-          },
-          include: {
-            patient: true,
-            dentist: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                specialization: true
-              }
-            }
-          }
-        });
-
-        // Update patient's last visit if this is a future appointment
-        if (validatedData.status === 'COMPLETED') {
-          await tx.patient.update({
-            where: { id: validatedData.patientId },
-            data: { lastVisitAt: validatedData.appointmentDate as Date }
-          });
-        }
-
-        // Create audit log
-        await tx.auditLog.create({
-          data: {
-            userId,
-            action: 'CREATE_APPOINTMENT',
-            entityType: 'Appointment',
-            entityId: newAppointment.id,
-            newData: newAppointment as any,
-            createdAt: new Date()
-          }
-        });
-
-        return newAppointment;
-      });
-
-      return appointment;
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        throw new Error(`Validation error: ${JSON.stringify(error.issues)}`);
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Check for appointment conflicts
-   */
-  async checkConflicts(
-    dentistId: string,
-    appointmentDate: Date,
-    durationMinutes: number,
-    excludeAppointmentId?: string
-  ): Promise<AppointmentConflict[]> {
-    const conflicts: AppointmentConflict[] = [];
-    
-    // Get clinic settings for buffer time
-    const clinicSettings = await prisma.clinicSettings.findFirst();
-    const bufferMinutes = clinicSettings?.appointmentBuffer || 5;
-
-    // Calculate appointment time range with buffer
-    const appointmentStart = appointmentDate;
-    const appointmentEnd = addMinutes(appointmentDate, durationMinutes);
-    const bufferStart = addMinutes(appointmentStart, -bufferMinutes);
-    const bufferEnd = addMinutes(appointmentEnd, bufferMinutes);
-
-    // Find overlapping appointments for the same dentist
-    const overlappingAppointments = await prisma.appointment.findMany({
-      where: {
-        dentistId,
-        id: excludeAppointmentId ? { not: excludeAppointmentId } : undefined,
-        status: {
-          notIn: ['CANCELLED', 'NO_SHOW']
-        },
-        AND: [
-          {
-            appointmentDate: {
-              lt: bufferEnd
-            }
-          },
-          {
-            appointmentDate: {
-              gte: startOfDay(appointmentDate)
-            }
-          }
-        ]
-      },
-      include: {
-        patient: true
-      }
-    });
-
-    for (const existing of overlappingAppointments) {
-      const existingEnd = addMinutes(existing.appointmentDate, existing.durationMinutes);
       
-      // Check direct overlap
-      if (
-        (appointmentStart >= existing.appointmentDate && appointmentStart < existingEnd) ||
-        (appointmentEnd > existing.appointmentDate && appointmentEnd <= existingEnd) ||
-        (appointmentStart <= existing.appointmentDate && appointmentEnd >= existingEnd)
-      ) {
-        conflicts.push({
-          appointment: existing,
-          conflictType: 'overlap',
-          message: `Overlaps with appointment for ${existing.patient.firstName} ${existing.patient.lastName} at ${existing.appointmentDate.toLocaleTimeString()}`
-        });
-      }
-      // Check buffer conflict
-      else if (
-        (bufferStart < existingEnd && bufferEnd > existing.appointmentDate)
-      ) {
-        conflicts.push({
-          appointment: existing,
-          conflictType: 'buffer',
-          message: `Too close to appointment for ${existing.patient.firstName} ${existing.patient.lastName} (buffer time needed)`
-        });
+      if (existingEmail) {
+        throw new Error('A patient with this email already exists');
       }
     }
 
-    // Check working hours if clinic settings exist
-    if (clinicSettings?.workingHours) {
-      const workingHours = clinicSettings.workingHours as any;
-      const dayOfWeek = appointmentDate.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-      const dayHours = workingHours[dayOfWeek];
-
-      if (dayHours && !dayHours.closed) {
-        const appointmentTime = appointmentDate.toTimeString().slice(0, 5);
-        const appointmentEndTime = appointmentEnd.toTimeString().slice(0, 5);
-
-        if (appointmentTime < dayHours.start || appointmentEndTime > dayHours.end) {
-          conflicts.push({
-            appointment: {} as Appointment,
-            conflictType: 'break',
-            message: `Outside working hours (${dayHours.start} - ${dayHours.end})`
-          });
-        }
-
-        // Check lunch break if defined
-        if (dayHours.lunchBreak) {
-          const lunchStart = dayHours.lunchBreak.start;
-          const lunchEnd = dayHours.lunchBreak.end;
-
-          if (
-            (appointmentTime >= lunchStart && appointmentTime < lunchEnd) ||
-            (appointmentEndTime > lunchStart && appointmentEndTime <= lunchEnd)
-          ) {
-            conflicts.push({
-              appointment: {} as Appointment,
-              conflictType: 'break',
-              message: `Conflicts with lunch break (${lunchStart} - ${lunchEnd})`
-            });
-          }
-        }
-      }
-    }
-
-    return conflicts;
-  }
-
-  /**
-   * Get available time slots for a dentist on a specific date
-   */
-  async getAvailableSlots(
-    dentistId: string,
-    date: Date,
-    slotDuration: number = 30
-  ): Promise<DentistAvailability> {
-    const clinicSettings = await prisma.clinicSettings.findFirst();
-    const bufferMinutes = clinicSettings?.appointmentBuffer || 5;
-
-    // Get working hours for the day
-    let workStart = new Date(date);
-    workStart.setHours(9, 0, 0, 0);
-    let workEnd = new Date(date);
-    workEnd.setHours(18, 0, 0, 0);
-    let lunchStart: Date | null = null;
-    let lunchEnd: Date | null = null;
-
-    if (clinicSettings?.workingHours) {
-      const workingHours = clinicSettings.workingHours as any;
-      const dayOfWeek = date.toLocaleDateString('en-US', { weekday: 'long' }).toLowerCase();
-      const dayHours = workingHours[dayOfWeek];
-
-      if (dayHours && !dayHours.closed) {
-        const [startHour, startMin] = dayHours.start.split(':').map(Number);
-        const [endHour, endMin] = dayHours.end.split(':').map(Number);
-        workStart.setHours(startHour, startMin, 0, 0);
-        workEnd.setHours(endHour, endMin, 0, 0);
-
-        if (dayHours.lunchBreak) {
-          const [lunchStartHour, lunchStartMin] = dayHours.lunchBreak.start.split(':').map(Number);
-          const [lunchEndHour, lunchEndMin] = dayHours.lunchBreak.end.split(':').map(Number);
-          lunchStart = new Date(date);
-          lunchStart.setHours(lunchStartHour, lunchStartMin, 0, 0);
-          lunchEnd = new Date(date);
-          lunchEnd.setHours(lunchEndHour, lunchEndMin, 0, 0);
-        }
-      }
-    }
-
-    // Get existing appointments for the day
-    const existingAppointments = await prisma.appointment.findMany({
-      where: {
-        dentistId,
-        appointmentDate: {
-          gte: startOfDay(date),
-          lt: endOfDay(date)
-        },
-        status: {
-          notIn: ['CANCELLED', 'NO_SHOW']
-        }
-      },
-      orderBy: {
-        appointmentDate: 'asc'
+    // Check for existing patient with same phone
+    const existingPhone = await prisma.patient.findFirst({
+      where: { 
+        phone: validatedData.phone,
+        isActive: true 
       }
     });
-
-    // Generate time slots
-    const slots: TimeSlot[] = [];
-    let currentSlot = new Date(workStart);
-
-    while (currentSlot < workEnd) {
-      const slotEnd = addMinutes(currentSlot, slotDuration);
-
-      // Skip if slot extends beyond work hours
-      if (slotEnd > workEnd) {
-        break;
-      }
-
-      let available = true;
-      let reason = '';
-
-      // Check if slot is in lunch break
-      if (lunchStart && lunchEnd) {
-        if (
-          (currentSlot >= lunchStart && currentSlot < lunchEnd) ||
-          (slotEnd > lunchStart && slotEnd <= lunchEnd)
-        ) {
-          available = false;
-          reason = 'Lunch break';
-        }
-      }
-
-      // Check if slot conflicts with existing appointments
-      if (available) {
-        for (const appointment of existingAppointments) {
-          const appointmentEnd = addMinutes(appointment.appointmentDate, appointment.durationMinutes + bufferMinutes);
-          const appointmentStart = addMinutes(appointment.appointmentDate, -bufferMinutes);
-
-          if (
-            (currentSlot >= appointmentStart && currentSlot < appointmentEnd) ||
-            (slotEnd > appointmentStart && slotEnd <= appointmentEnd)
-          ) {
-            available = false;
-            reason = 'Booked';
-            break;
-          }
-        }
-      }
-
-      // Check if slot is in the past
-      if (available && currentSlot < new Date()) {
-        available = false;
-        reason = 'Past time';
-      }
-
-      slots.push({
-        start: new Date(currentSlot),
-        end: new Date(slotEnd),
-        available,
-        reason
-      });
-
-      currentSlot = addMinutes(currentSlot, slotDuration);
+    
+    if (existingPhone) {
+      throw new Error('A patient with this phone number already exists');
     }
 
-    const availableSlots = slots.filter(s => s.available);
-    const bookedSlots = slots.filter(s => !s.available && s.reason === 'Booked');
-
-    return {
-      date,
-      slots,
-      totalAvailable: availableSlots.length,
-      totalBooked: bookedSlots.length
-    };
-  }
-
-  /**
-   * Reschedule an appointment
-   */
-  async rescheduleAppointment(
-    appointmentId: string,
-    data: RescheduleAppointmentInput,
-    userId: string
-  ): Promise<Appointment> {
-    try {
-      const validatedData = RescheduleAppointmentSchema.parse(data);
-
-      const existingAppointment = await prisma.appointment.findUnique({
-        where: { id: appointmentId },
-        include: { patient: true, dentist: true }
-      });
-
-      if (!existingAppointment) {
-        throw new Error('Appointment not found');
-      }
-
-      if (existingAppointment.status === 'COMPLETED') {
-        throw new Error('Cannot reschedule completed appointments');
-      }
-
-      const newDuration = validatedData.newDurationMinutes || existingAppointment.durationMinutes;
-
-      // Check conflicts for new time
-      const conflicts = await this.checkConflicts(
-        existingAppointment.dentistId,
-        validatedData.newDate as Date,
-        newDuration,
-        appointmentId
-      );
-
-      if (conflicts.length > 0) {
-        const conflictMessages = conflicts.map(c => c.message).join(', ');
-        throw new Error(`Cannot reschedule: ${conflictMessages}`);
-      }
-
-      // Reschedule with transaction
-      const rescheduledAppointment = await prisma.$transaction(async (tx) => {
-        // Update appointment
-        const updated = await tx.appointment.update({
-          where: { id: appointmentId },
-          data: {
-            appointmentDate: validatedData.newDate as Date,
-            durationMinutes: newDuration,
-            status: 'RESCHEDULED',
-            notes: validatedData.reason 
-              ? `${existingAppointment.notes || ''}\n[Rescheduled]: ${validatedData.reason}`.trim()
-              : existingAppointment.notes,
-            updatedAt: new Date()
-          },
-          include: {
-            patient: true,
-            dentist: {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                specialization: true
-              }
-            }
-          }
-        });
-
-        // Create new appointment for the new time
-        const newAppointment = await tx.appointment.create({
-          data: {
-            patientId: existingAppointment.patientId,
-            dentistId: existingAppointment.dentistId,
-            appointmentDate: validatedData.newDate as Date,
-            durationMinutes: newDuration,
-            type: existingAppointment.type,
-            reason: existingAppointment.reason,
-            notes: `Rescheduled from ${existingAppointment.appointmentDate.toISOString()}`,
-            status: 'SCHEDULED'
-          }
-        });
-
-        // Create audit log
-        await tx.auditLog.create({
-          data: {
-            userId,
-            action: 'RESCHEDULE_APPOINTMENT',
-            entityType: 'Appointment',
-            entityId: appointmentId,
-            oldData: existingAppointment as any,
-            newData: newAppointment as any,
-            newValue: `Rescheduled to ${validatedData.newDate}`,
-            createdAt: new Date()
-          }
-        });
-
-        return newAppointment;
-      });
-
-      return rescheduledAppointment;
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        throw new Error(`Validation error: ${JSON.stringify(error.issues)}`);
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Cancel an appointment
-   */
-  async cancelAppointment(
-    appointmentId: string,
-    reason: string,
-    userId: string
-  ): Promise<Appointment> {
-    const appointment = await prisma.appointment.findUnique({
-      where: { id: appointmentId }
-    });
-
-    if (!appointment) {
-      throw new Error('Appointment not found');
-    }
-
-    if (appointment.status === 'COMPLETED') {
-      throw new Error('Cannot cancel completed appointments');
-    }
-
-    if (appointment.status === 'CANCELLED') {
-      throw new Error('Appointment is already cancelled');
-    }
-
-    const cancelled = await prisma.$transaction(async (tx) => {
-      const updated = await tx.appointment.update({
-        where: { id: appointmentId },
+    // Create patient with audit log in transaction
+    const patient = await prisma.$transaction(async (tx) => {
+      const newPatient = await tx.patient.create({
         data: {
-          status: 'CANCELLED',
-          notes: `${appointment.notes || ''}\n[Cancelled]: ${reason}`.trim(),
-          updatedAt: new Date()
+          firstName: validatedData.firstName,
+          lastName: validatedData.lastName,
+          email: validatedData.email,
+          phone: validatedData.phone,
+          dateOfBirth: validatedData.dateOfBirth,
+          gender: validatedData.gender,
+          address: validatedData.address,
+          city: validatedData.city,
+          state: validatedData.state,
+          zipCode: validatedData.zipCode,
+          country: validatedData.country,
+          bloodType: validatedData.bloodType,
+          allergies: validatedData.allergies,
+          medications: validatedData.medications,
+          medicalHistory: validatedData.medicalHistory,
+          insuranceProvider: validatedData.insuranceProvider,
+          insurancePolicyNumber: validatedData.insurancePolicyNumber,
+          insuranceGroupNumber: validatedData.insuranceGroupNumber,
+          emergencyContactName: validatedData.emergencyContactName,
+          emergencyContactPhone: validatedData.emergencyContactPhone,
+          emergencyContactRelation: validatedData.emergencyContactRelation,
+          notes: validatedData.notes,
+          createdById,
+          isActive: true,
         },
         include: {
-          patient: true,
-          dentist: {
+          createdBy: {
             select: {
               id: true,
               name: true,
-              email: true
+              email: true,
             }
           }
         }
       });
 
+      // Create audit log
+      await tx.auditLog.create({
+        data: {
+          userId: createdById,
+          action: 'CREATE_PATIENT',
+          entityType: 'Patient',
+          entityId: newPatient.id,
+          newData: newPatient as any,
+        }
+      });
+
+      return newPatient;
+    });
+
+    return patient;
+  }
+
+  /**
+   * Update patient medical history with validation and audit trail
+   */
+  static async updateMedicalHistory(
+    patientId: string, 
+    data: UpdateMedicalHistoryInput,
+    userId: string
+  ): Promise<Patient> {
+    // Validate input
+    const validatedData = updateMedicalHistorySchema.parse(data);
+
+    // Get existing patient
+    const patient = await prisma.patient.findUnique({
+      where: { id: patientId }
+    });
+
+    if (!patient) {
+      throw new Error('Patient not found');
+    }
+
+    if (!patient.isActive) {
+      throw new Error('Cannot update inactive patient');
+    }
+
+    // Update with transaction and audit log
+    const updatedPatient = await prisma.$transaction(async (tx) => {
+      // Store old data for audit
+      const oldData = {
+        bloodType: patient.bloodType,
+        allergies: patient.allergies,
+        medications: patient.medications,
+        medicalHistory: patient.medicalHistory,
+        notes: patient.notes,
+      };
+
+      // Update patient
+      const updated = await tx.patient.update({
+        where: { id: patientId },
+        data: {
+          bloodType: validatedData.bloodType !== undefined ? validatedData.bloodType : patient.bloodType,
+          allergies: validatedData.allergies !== undefined ? validatedData.allergies : patient.allergies,
+          medications: validatedData.medications !== undefined ? validatedData.medications : patient.medications,
+          medicalHistory: validatedData.medicalHistory !== undefined ? validatedData.medicalHistory : patient.medicalHistory,
+          notes: validatedData.notes !== undefined ? validatedData.notes : patient.notes,
+          updatedAt: new Date(),
+        },
+        include: {
+          treatments: {
+            take: 5,
+            orderBy: { treatmentDate: 'desc' },
+            include: {
+              dentist: {
+                select: {
+                  id: true,
+                  name: true,
+                  specialization: true,
+                }
+              }
+            }
+          },
+          appointments: {
+            take: 5,
+            orderBy: { appointmentDate: 'desc' },
+            include: {
+              dentist: {
+                select: {
+                  id: true,
+                  name: true,
+                  specialization: true,
+                }
+              }
+            }
+          }
+        }
+      });
+
+      // Create audit log
       await tx.auditLog.create({
         data: {
           userId,
-          action: 'CANCEL_APPOINTMENT',
-          entityType: 'Appointment',
-          entityId: appointmentId,
-          oldData: appointment as any,
-          newValue: reason,
-          createdAt: new Date()
+          action: 'UPDATE_MEDICAL_HISTORY',
+          entityType: 'Patient',
+          entityId: patientId,
+          oldData: oldData as any,
+          newData: validatedData as any,
         }
       });
 
       return updated;
     });
 
-    return cancelled;
+    return updatedPatient;
   }
 
   /**
-   * Update appointment status
+   * Advanced patient search with multiple filters and pagination
    */
-  async updateAppointmentStatus(
-    appointmentId: string,
-    status: AppointmentStatus,
-    userId: string
-  ): Promise<Appointment> {
-    const appointment = await prisma.appointment.findUnique({
-      where: { id: appointmentId },
-      include: { patient: true }
-    });
+  static async searchPatients(filters: SearchPatientsInput) {
+    // Validate input
+    const validatedFilters = searchPatientsSchema.parse(filters);
+    
+    const {
+      query,
+      page = 1,
+      limit = 20,
+      sortBy = 'lastName',
+      sortOrder = 'asc',
+      ...searchFilters
+    } = validatedFilters;
 
-    if (!appointment) {
-      throw new Error('Appointment not found');
+    // Build where clause
+    const where: Prisma.PatientWhereInput = {};
+    const andConditions: Prisma.PatientWhereInput[] = [];
+
+    // General text search
+    if (query) {
+      andConditions.push({
+        OR: [
+          { firstName: { contains: query, mode: 'insensitive' } },
+          { lastName: { contains: query, mode: 'insensitive' } },
+          { email: { contains: query, mode: 'insensitive' } },
+          { phone: { contains: query } },
+          { notes: { contains: query, mode: 'insensitive' } },
+        ]
+      });
     }
 
-    const updated = await prisma.$transaction(async (tx) => {
-      const updatedAppointment = await tx.appointment.update({
-        where: { id: appointmentId },
-        data: {
-          status,
-          updatedAt: new Date()
-        },
+    // Specific field filters
+    if (searchFilters.firstName) {
+      andConditions.push({ firstName: { contains: searchFilters.firstName, mode: 'insensitive' } });
+    }
+    if (searchFilters.lastName) {
+      andConditions.push({ lastName: { contains: searchFilters.lastName, mode: 'insensitive' } });
+    }
+    if (searchFilters.email) {
+      andConditions.push({ email: { contains: searchFilters.email, mode: 'insensitive' } });
+    }
+    if (searchFilters.phone) {
+      andConditions.push({ phone: { contains: searchFilters.phone } });
+    }
+    if (searchFilters.gender) {
+      andConditions.push({ gender: searchFilters.gender });
+    }
+    if (searchFilters.city) {
+      andConditions.push({ city: { contains: searchFilters.city, mode: 'insensitive' } });
+    }
+    if (searchFilters.state) {
+      andConditions.push({ state: { contains: searchFilters.state, mode: 'insensitive' } });
+    }
+    if (searchFilters.insuranceProvider) {
+      andConditions.push({ 
+        insuranceProvider: { contains: searchFilters.insuranceProvider, mode: 'insensitive' } 
+      });
+    }
+
+    // Boolean filters
+    if (searchFilters.hasAllergies === true) {
+      andConditions.push({ 
+        NOT: { allergies: { isEmpty: true } }
+      });
+    }
+    if (searchFilters.hasMedications === true) {
+      andConditions.push({ 
+        NOT: { medications: { isEmpty: true } }
+      });
+    }
+    if (searchFilters.isActive !== undefined) {
+      andConditions.push({ isActive: searchFilters.isActive });
+    }
+
+    // Date filters
+    if (searchFilters.dateOfBirth) {
+      const dob = new Date(searchFilters.dateOfBirth);
+      const nextDay = new Date(dob);
+      nextDay.setDate(nextDay.getDate() + 1);
+      andConditions.push({ 
+        dateOfBirth: {
+          gte: dob,
+          lt: nextDay
+        }
+      });
+    }
+    if (searchFilters.createdAfter) {
+      andConditions.push({ createdAt: { gte: new Date(searchFilters.createdAfter) } });
+    }
+    if (searchFilters.createdBefore) {
+      andConditions.push({ createdAt: { lte: new Date(searchFilters.createdBefore) } });
+    }
+    if (searchFilters.lastVisitAfter) {
+      andConditions.push({ lastVisitAt: { gte: new Date(searchFilters.lastVisitAfter) } });
+    }
+    if (searchFilters.lastVisitBefore) {
+      andConditions.push({ lastVisitAt: { lte: new Date(searchFilters.lastVisitBefore) } });
+    }
+
+    // Apply conditions
+    if (andConditions.length > 0) {
+      where.AND = andConditions;
+    }
+
+    // Execute query with pagination
+    const [patients, total] = await prisma.$transaction([
+      prisma.patient.findMany({
+        where,
+        skip: (page - 1) * limit,
+        take: limit,
+        orderBy: { [sortBy]: sortOrder },
         include: {
-          patient: true,
-          dentist: {
+          _count: {
+            select: {
+              appointments: true,
+              treatments: true,
+            }
+          },
+          appointments: {
+            take: 1,
+            orderBy: { appointmentDate: 'desc' },
+            where: {
+              status: 'SCHEDULED'
+            },
+            select: {
+              id: true,
+              appointmentDate: true,
+              status: true,
+              type: true,
+            }
+          },
+          createdBy: {
             select: {
               id: true,
               name: true,
-              email: true
+              email: true,
             }
           }
         }
-      });
+      }),
+      prisma.patient.count({ where })
+    ]);
 
-      // Update patient's last visit if status is COMPLETED
-      if (status === 'COMPLETED' && appointment.status !== 'COMPLETED') {
-        await tx.patient.update({
-          where: { id: appointment.patientId },
-          data: { lastVisitAt: appointment.appointmentDate }
-        });
-      }
-
-      await tx.auditLog.create({
-        data: {
-          userId,
-          action: 'UPDATE_APPOINTMENT_STATUS',
-          entityType: 'Appointment',
-          entityId: appointmentId,
-          oldData: { status: appointment.status } as any,
-          newData: { status } as any,
-          createdAt: new Date()
-        }
-      });
-
-      return updatedAppointment;
-    });
-
-    return updated;
-  }
-
-  /**
-   * Search appointments with filters
-   */
-  async searchAppointments(filters: SearchAppointmentsInput): Promise<AppointmentSearchResult> {
-    try {
-      const validatedFilters = SearchAppointmentsSchema.parse(filters);
-      const { page, limit, sortBy, sortOrder, includePatient, includeDentist, ...searchFilters } = validatedFilters;
-
-      const where: Prisma.AppointmentWhereInput = {};
-
-      if (searchFilters.dentistId) where.dentistId = searchFilters.dentistId;
-      if (searchFilters.patientId) where.patientId = searchFilters.patientId;
-      if (searchFilters.status) where.status = searchFilters.status;
-      if (searchFilters.type) where.type = searchFilters.type;
-
-      if (searchFilters.dateFrom || searchFilters.dateTo) {
-        where.appointmentDate = {
-          gte: searchFilters.dateFrom,
-          lte: searchFilters.dateTo
-        };
-      }
-
-      const [total, data] = await prisma.$transaction([
-        prisma.appointment.count({ where }),
-        prisma.appointment.findMany({
-          where,
-          skip: (page - 1) * limit,
-          take: limit,
-          orderBy: {
-            [sortBy]: sortOrder
-          },
-          include: {
-            patient: includePatient,
-            dentist: includeDentist ? {
-              select: {
-                id: true,
-                name: true,
-                email: true,
-                specialization: true
-              }
-            } : false
-          }
-        })
-      ]);
-
-      return {
-        data,
-        total,
+    return {
+      data: patients,
+      pagination: {
         page,
         limit,
-        totalPages: Math.ceil(total / limit)
-      };
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        throw new Error(`Validation error: ${JSON.stringify(error.issues)}`);
-      }
-      throw error;
-    }
-  }
-
-  /**
-   * Get appointments for today
-   */
-  async getTodayAppointments(dentistId?: string): Promise<Appointment[]> {
-    const today = new Date();
-    const where: Prisma.AppointmentWhereInput = {
-      appointmentDate: {
-        gte: startOfDay(today),
-        lt: endOfDay(today)
-      },
-      status: {
-        notIn: ['CANCELLED', 'NO_SHOW']
+        total,
+        pages: Math.ceil(total / limit),
+        hasMore: page < Math.ceil(total / limit)
       }
     };
-
-    if (dentistId) {
-      where.dentistId = dentistId;
-    }
-
-    return await prisma.appointment.findMany({
-      where,
-      orderBy: {
-        appointmentDate: 'asc'
-      },
-      include: {
-        patient: true,
-        dentist: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            specialization: true
-          }
-        }
-      }
-    });
   }
 
   /**
-   * Get upcoming appointments for a patient
+   * Merge duplicate patient records
    */
-  async getPatientUpcomingAppointments(patientId: string): Promise<Appointment[]> {
-    return await prisma.appointment.findMany({
-      where: {
-        patientId,
-        appointmentDate: {
-          gte: new Date()
-        },
-        status: {
-          in: ['SCHEDULED', 'CONFIRMED']
-        }
-      },
-      orderBy: {
-        appointmentDate: 'asc'
-      },
-      include: {
-        dentist: {
-          select: {
-            id: true,
-            name: true,
-            specialization: true
-          }
-        }
-      }
-    });
-  }
-
-  /**
-   * Send reminder for a single appointment
-   */
-  async sendAppointmentReminder(appointmentId: string): Promise<ReminderResult> {
-    const appointment = await prisma.appointment.findUnique({
-      where: { id: appointmentId },
-      include: {
-        patient: true,
-        dentist: {
-          select: {
-            name: true,
-            specialization: true
-          }
-        }
-      }
-    });
-
-    if (!appointment) {
-      return {
-        appointmentId,
-        success: false,
-        error: 'Appointment not found'
-      };
+  static async mergePatientRecords(
+    primaryPatientId: string,
+    duplicatePatientId: string,
+    userId: string
+  ): Promise<Patient> {
+    // Validate IDs are different
+    if (primaryPatientId === duplicatePatientId) {
+      throw new Error('Cannot merge a patient with itself');
     }
 
-    if (appointment.reminderSent) {
-      return {
-        appointmentId,
-        success: false,
-        error: 'Reminder already sent'
-      };
+    // Get both patients
+    const [primaryPatient, duplicatePatient] = await Promise.all([
+      prisma.patient.findUnique({ 
+        where: { id: primaryPatientId },
+        include: {
+          appointments: true,
+          treatments: true
+        }
+      }),
+      prisma.patient.findUnique({ 
+        where: { id: duplicatePatientId },
+        include: {
+          appointments: true,
+          treatments: true
+        }
+      })
+    ]);
+
+    if (!primaryPatient) {
+      throw new Error('Primary patient not found');
+    }
+    if (!duplicatePatient) {
+      throw new Error('Duplicate patient not found');
     }
 
-    try {
-      // Here you would integrate with your email/SMS service
-      // For example: await sendEmail(appointment.patient.email, reminderTemplate)
-      // or: await sendSMS(appointment.patient.phone, reminderMessage)
-
-      const reminderMessage = `
-        Dear ${appointment.patient.firstName} ${appointment.patient.lastName},
-        
-        This is a reminder for your appointment:
-        Date: ${appointment.appointmentDate.toLocaleDateString()}
-        Time: ${appointment.appointmentDate.toLocaleTimeString()}
-        Doctor: Dr. ${appointment.dentist.name}
-        Type: ${appointment.type}
-        
-        Please arrive 10 minutes early for check-in.
-        
-        If you need to reschedule, please contact us as soon as possible.
-      `;
-
-      console.log('Sending reminder:', reminderMessage);
-
-      // Update appointment to mark reminder as sent
-      await prisma.appointment.update({
-        where: { id: appointmentId },
-        data: {
-          reminderSent: true,
-          reminderSentAt: new Date()
-        }
+    // Perform merge in transaction
+    const mergedPatient = await prisma.$transaction(async (tx) => {
+      // Transfer all appointments to primary patient
+      await tx.appointment.updateMany({
+        where: { patientId: duplicatePatientId },
+        data: { patientId: primaryPatientId }
       });
 
-      return {
-        appointmentId,
-        success: true,
-        sentAt: new Date()
-      };
-    } catch (error) {
-      return {
-        appointmentId,
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to send reminder'
-      };
-    }
-  }
+      // Transfer all treatments to primary patient
+      await tx.treatment.updateMany({
+        where: { patientId: duplicatePatientId },
+        data: { patientId: primaryPatientId }
+      });
 
-  /**
-   * Send batch reminders for upcoming appointments
-   */
-  async sendBatchReminders(hoursInAdvance: number = 24): Promise<BatchReminderResult> {
-    const startTime = new Date();
-    const reminderTime = addHours(new Date(), hoursInAdvance);
+      // Prepare merged data
+      const mergedNotes = [primaryPatient.notes, duplicatePatient.notes]
+        .filter(Boolean)
+        .join('\n\n--- Merged from duplicate record ---\n\n');
 
-    // Get appointments that need reminders
-    const appointments = await prisma.appointment.findMany({
-      where: {
-        appointmentDate: {
-          gte: startTime,
-          lte: reminderTime
+      const mergedMedicalHistory = [primaryPatient.medicalHistory, duplicatePatient.medicalHistory]
+        .filter(Boolean)
+        .join('\n\n--- Merged from duplicate record ---\n\n');
+
+      // Merge arrays without duplicates
+      const mergedAllergies = Array.from(new Set([
+        ...primaryPatient.allergies,
+        ...duplicatePatient.allergies
+      ]));
+
+      const mergedMedications = Array.from(new Set([
+        ...primaryPatient.medications,
+        ...duplicatePatient.medications
+      ]));
+
+      // Update primary patient with merged data
+      const updated = await tx.patient.update({
+        where: { id: primaryPatientId },
+        data: {
+          // Keep primary patient basic info, fill missing from duplicate
+          email: primaryPatient.email || duplicatePatient.email,
+          address: primaryPatient.address || duplicatePatient.address,
+          city: primaryPatient.city || duplicatePatient.city,
+          state: primaryPatient.state || duplicatePatient.state,
+          zipCode: primaryPatient.zipCode || duplicatePatient.zipCode,
+          bloodType: primaryPatient.bloodType || duplicatePatient.bloodType,
+          allergies: mergedAllergies,
+          medications: mergedMedications,
+          medicalHistory: mergedMedicalHistory || undefined,
+          insuranceProvider: primaryPatient.insuranceProvider || duplicatePatient.insuranceProvider,
+          insurancePolicyNumber: primaryPatient.insurancePolicyNumber || duplicatePatient.insurancePolicyNumber,
+          insuranceGroupNumber: primaryPatient.insuranceGroupNumber || duplicatePatient.insuranceGroupNumber,
+          emergencyContactName: primaryPatient.emergencyContactName || duplicatePatient.emergencyContactName,
+          emergencyContactPhone: primaryPatient.emergencyContactPhone || duplicatePatient.emergencyContactPhone,
+          emergencyContactRelation: primaryPatient.emergencyContactRelation || duplicatePatient.emergencyContactRelation,
+          lastVisitAt: duplicatePatient.lastVisitAt && 
+            (!primaryPatient.lastVisitAt || duplicatePatient.lastVisitAt > primaryPatient.lastVisitAt)
+            ? duplicatePatient.lastVisitAt 
+            : primaryPatient.lastVisitAt,
+          notes: mergedNotes || undefined,
+          updatedAt: new Date()
         },
-        status: {
-          in: ['SCHEDULED', 'CONFIRMED']
-        },
-        reminderSent: false
-      },
-      include: {
-        patient: true,
-        dentist: {
-          select: {
-            name: true,
-            specialization: true
-          }
-        }
-      }
-    });
-
-    const results: ReminderResult[] = [];
-
-    for (const appointment of appointments) {
-      const result = await this.sendAppointmentReminder(appointment.id);
-      results.push(result);
-    }
-
-    const endTime = new Date();
-    const successful = results.filter(r => r.success).length;
-    const failed = results.filter(r => !r.success).length;
-
-    // Log batch results
-    const batchLog = await prisma.reminderBatchLog.create({
-      data: {
-        startTime,
-        endTime,
-        totalAppointments: appointments.length,
-        processed: results.length,
-        successful,
-        failed,
-        duration: differenceInMinutes(endTime, startTime),
-        results: results as any
-      }
-    });
-
-    return {
-      totalProcessed: results.length,
-      successful,
-      failed,
-      results,
-      batchLogId: batchLog.id
-    };
-  }
-
-  /**
-   * Get appointment statistics for a period
-   */
-  async getAppointmentStats(
-    dateFrom: Date,
-    dateTo: Date,
-    dentistId?: string
-  ): Promise<{
-    total: number;
-    byStatus: Record<string, number>;
-    byType: Record<string, number>;
-    averageDuration: number;
-    noShowRate: number;
-    completionRate: number;
-  }> {
-    const where: Prisma.AppointmentWhereInput = {
-      appointmentDate: {
-        gte: dateFrom,
-        lte: dateTo
-      }
-    };
-
-    if (dentistId) {
-      where.dentistId = dentistId;
-    }
-
-    const appointments = await prisma.appointment.findMany({ where });
-
-    const stats = {
-      total: appointments.length,
-      byStatus: {} as Record<string, number>,
-      byType: {} as Record<string, number>,
-      averageDuration: 0,
-      noShowRate: 0,
-      completionRate: 0
-    };
-
-    if (appointments.length === 0) {
-      return stats;
-    }
-
-    let totalDuration = 0;
-    let noShows = 0;
-    let completed = 0;
-
-    for (const appointment of appointments) {
-      // Count by status
-      stats.byStatus[appointment.status] = (stats.byStatus[appointment.status] || 0) + 1;
-      
-      // Count by type
-      stats.byType[appointment.type] = (stats.byType[appointment.type] || 0) + 1;
-      
-      // Sum durations
-      totalDuration += appointment.durationMinutes;
-      
-      // Count no-shows and completed
-      if (appointment.status === 'NO_SHOW') noShows++;
-      if (appointment.status === 'COMPLETED') completed++;
-    }
-
-    stats.averageDuration = Math.round(totalDuration / appointments.length);
-    stats.noShowRate = Math.round((noShows / appointments.length) * 100);
-    stats.completionRate = Math.round((completed / appointments.length) * 100);
-
-    return stats;
-  }
-
-  /**
-   * Get dentist schedule for a date range
-   */
-  async getDentistSchedule(
-    dentistId: string,
-    dateFrom: Date,
-    dateTo: Date
-  ): Promise<{
-    appointments: Appointment[];
-    workload: {
-      totalHours: number;
-      averagePerDay: number;
-      busiestDay: string;
-      lightestDay: string;
-    };
-  }> {
-    const appointments = await prisma.appointment.findMany({
-      where: {
-        dentistId,
-        appointmentDate: {
-          gte: dateFrom,
-          lte: dateTo
-        },
-        status: {
-          notIn: ['CANCELLED', 'NO_SHOW']
-        }
-      },
-      orderBy: {
-        appointmentDate: 'asc'
-      },
-      include: {
-        patient: {
-          select: {
-            id: true,
-            firstName: true,
-            lastName: true,
-            phone: true
-          }
-        }
-      }
-    });
-
-    // Calculate workload
-    const dailyHours: Record<string, number> = {};
-    let totalMinutes = 0;
-
-    for (const appointment of appointments) {
-      const dateKey = appointment.appointmentDate.toISOString().split('T')[0];
-      dailyHours[dateKey] = (dailyHours[dateKey] || 0) + appointment.durationMinutes;
-      totalMinutes += appointment.durationMinutes;
-    }
-
-    const workdays = Object.keys(dailyHours);
-    const totalHours = totalMinutes / 60;
-    const averagePerDay = workdays.length > 0 ? totalHours / workdays.length : 0;
-
-    let busiestDay = '';
-    let lightestDay = '';
-    let maxHours = 0;
-    let minHours = Infinity;
-
-    for (const [day, minutes] of Object.entries(dailyHours)) {
-      const hours = minutes / 60;
-      if (hours > maxHours) {
-        maxHours = hours;
-        busiestDay = day;
-      }
-      if (hours < minHours) {
-        minHours = hours;
-        lightestDay = day;
-      }
-    }
-
-    return {
-      appointments,
-      workload: {
-        totalHours: Math.round(totalHours * 10) / 10,
-        averagePerDay: Math.round(averagePerDay * 10) / 10,
-        busiestDay,
-        lightestDay
-      }
-    };
-  }
-
-  /**
-   * Optimize schedule by suggesting better time slots
-   */
-  async optimizeSchedule(
-    dentistId: string,
-    date: Date
-  ): Promise<{
-    currentEfficiency: number;
-    suggestions: Array<{
-      appointmentId: string;
-      currentTime: Date;
-      suggestedTime: Date;
-      reason: string;
-    }>;
-  }> {
-    const appointments = await prisma.appointment.findMany({
-      where: {
-        dentistId,
-        appointmentDate: {
-          gte: startOfDay(date),
-          lt: endOfDay(date)
-        },
-        status: {
-          notIn: ['CANCELLED', 'NO_SHOW', 'COMPLETED']
-        }
-      },
-      orderBy: {
-        appointmentDate: 'asc'
-      }
-    });
-
-    const clinicSettings = await prisma.clinicSettings.findFirst();
-    const bufferMinutes = clinicSettings?.appointmentBuffer || 5;
-
-    // Calculate current efficiency (minimize gaps between appointments)
-    let totalGapMinutes = 0;
-    let totalWorkMinutes = 0;
-    const suggestions: Array<{
-      appointmentId: string;
-      currentTime: Date;
-      suggestedTime: Date;
-      reason: string;
-    }> = [];
-
-    for (let i = 0; i < appointments.length - 1; i++) {
-      const current = appointments[i];
-      const next = appointments[i + 1];
-      const currentEnd = addMinutes(current.appointmentDate, current.durationMinutes);
-      const gap = differenceInMinutes(next.appointmentDate, currentEnd);
-
-      totalWorkMinutes += current.durationMinutes;
-
-      if (gap > bufferMinutes) {
-        totalGapMinutes += gap - bufferMinutes;
-
-        // Suggest moving the next appointment earlier
-        const suggestedTime = addMinutes(currentEnd, bufferMinutes);
-        
-        // Check if the suggested time doesn't conflict with other constraints
-        const conflicts = await this.checkConflicts(
-          dentistId,
-          suggestedTime,
-          next.durationMinutes,
-          next.id
-        );
-
-        if (conflicts.length === 0) {
-          suggestions.push({
-            appointmentId: next.id,
-            currentTime: next.appointmentDate,
-            suggestedTime,
-            reason: `Reduce ${gap} minute gap between appointments`
-          });
-        }
-      }
-    }
-
-    if (appointments.length > 0) {
-      totalWorkMinutes += appointments[appointments.length - 1].durationMinutes;
-    }
-
-    const currentEfficiency = totalWorkMinutes > 0
-      ? Math.round(((totalWorkMinutes / (totalWorkMinutes + totalGapMinutes)) * 100))
-      : 100;
-
-    return {
-      currentEfficiency,
-      suggestions
-    };
-  }
-
-  /**
-   * Mark appointment as no-show
-   */
-  async markNoShow(appointmentId: string, userId: string): Promise<Appointment> {
-    const appointment = await prisma.appointment.findUnique({
-      where: { id: appointmentId }
-    });
-
-    if (!appointment) {
-      throw new Error('Appointment not found');
-    }
-
-    const now = new Date();
-    if (appointment.appointmentDate > now) {
-      throw new Error('Cannot mark future appointments as no-show');
-    }
-
-    return await this.updateAppointmentStatus(appointmentId, 'NO_SHOW', userId);
-  }
-
-  /**
-   * Confirm an appointment
-   */
-  async confirmAppointment(appointmentId: string, userId: string): Promise<Appointment> {
-    const appointment = await prisma.appointment.findUnique({
-      where: { id: appointmentId }
-    });
-
-    if (!appointment) {
-      throw new Error('Appointment not found');
-    }
-
-    if (appointment.status !== 'SCHEDULED') {
-      throw new Error('Only scheduled appointments can be confirmed');
-    }
-
-    return await this.updateAppointmentStatus(appointmentId, 'CONFIRMED', userId);
-  }
-
-  /**
-   * Get appointment history for a patient
-   */
-  async getPatientAppointmentHistory(
-    patientId: string,
-    limit: number = 50
-  ): Promise<{
-    appointments: Appointment[];
-    stats: {
-      total: number;
-      completed: number;
-      cancelled: number;
-      noShow: number;
-      averageDuration: number;
-    };
-  }> {
-    const appointments = await prisma.appointment.findMany({
-      where: { patientId },
-      orderBy: { appointmentDate: 'desc' },
-      take: limit,
-      include: {
-        dentist: {
-          select: {
-            id: true,
-            name: true,
-            specialization: true
-          }
-        }
-      }
-    });
-
-    const stats = {
-      total: appointments.length,
-      completed: appointments.filter(a => a.status === 'COMPLETED').length,
-      cancelled: appointments.filter(a => a.status === 'CANCELLED').length,
-      noShow: appointments.filter(a => a.status === 'NO_SHOW').length,
-      averageDuration: 0
-    };
-
-    if (appointments.length > 0) {
-      const totalDuration = appointments.reduce((sum, a) => sum + a.durationMinutes, 0);
-      stats.averageDuration = Math.round(totalDuration / appointments.length);
-    }
-
-    return { appointments, stats };
-  }
-
-  /**
-   * Check if patient has upcoming appointments
-   */
-  async hasUpcomingAppointments(patientId: string): Promise<boolean> {
-    const count = await prisma.appointment.count({
-      where: {
-        patientId,
-        appointmentDate: {
-          gte: new Date()
-        },
-        status: {
-          in: ['SCHEDULED', 'CONFIRMED']
-        }
-      }
-    });
-
-    return count > 0;
-  }
-
-  /**
-   * Get next available slot for a specific procedure type
-   */
-  async getNextAvailableSlot(
-    dentistId: string,
-    duration: number,
-    preferredTime?: 'morning' | 'afternoon' | 'evening'
-  ): Promise<TimeSlot | null> {
-    const maxDaysToSearch = 30;
-    const today = new Date();
-
-    for (let i = 0; i < maxDaysToSearch; i++) {
-      const searchDate = addDays(today, i);
-      const availability = await this.getAvailableSlots(dentistId, searchDate, duration);
-
-      let filteredSlots = availability.slots.filter(s => s.available);
-
-      // Filter by preferred time if specified
-      if (preferredTime && filteredSlots.length > 0) {
-        filteredSlots = filteredSlots.filter(slot => {
-          const hour = slot.start.getHours();
-          if (preferredTime === 'morning') return hour >= 8 && hour < 12;
-          if (preferredTime === 'afternoon') return hour >= 12 && hour < 17;
-          if (preferredTime === 'evening') return hour >= 17 && hour < 20;
-          return true;
-        });
-      }
-
-      if (filteredSlots.length > 0) {
-        return filteredSlots[0];
-      }
-    }
-
-    return null;
-  }
-
-  /**
-   * Bulk update appointment statuses (useful for end-of-day processing)
-   */
-  async bulkUpdateStatuses(
-    updates: Array<{ appointmentId: string; status: AppointmentStatus }>,
-    userId: string
-  ): Promise<{ successful: number; failed: number; errors: Array<{ id: string; error: string }> }> {
-    let successful = 0;
-    let failed = 0;
-    const errors: Array<{ id: string; error: string }> = [];
-
-    for (const update of updates) {
-      try {
-        await this.updateAppointmentStatus(update.appointmentId, update.status, userId);
-        successful++;
-      } catch (error) {
-        failed++;
-        errors.push({
-          id: update.appointmentId,
-          error: error instanceof Error ? error.message : 'Unknown error'
-        });
-      }
-    }
-
-    return { successful, failed, errors };
-  }
-
-  /**
-   * Get appointment by ID with full details
-   */
-  async getAppointmentById(id: string): Promise<Appointment | null> {
-    return await prisma.appointment.findUnique({
-      where: { id },
-      include: {
-        patient: {
-          include: {
-            createdBy: {
-              select: {
-                id: true,
-                name: true,
-                email: true
-              }
+        include: {
+          appointments: {
+            orderBy: { appointmentDate: 'desc' },
+            take: 5
+          },
+          treatments: {
+            orderBy: { treatmentDate: 'desc' },
+            take: 5
+          },
+          createdBy: {
+            select: {
+              id: true,
+              name: true,
+              email: true,
             }
           }
-        },
-        dentist: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-            specialization: true,
-            licenseNumber: true
-          }
         }
-      }
+      });
+
+      // Soft delete duplicate patient
+      await tx.patient.update({
+        where: { id: duplicatePatientId },
+        data: { 
+          isActive: false,
+          notes: `Merged into patient ${primaryPatientId} on ${new Date().toISOString()}`
+        }
+      });
+
+      // Create audit log
+      await tx.auditLog.create({
+        data: {
+          userId,
+          action: 'MERGE_PATIENTS',
+          entityType: 'Patient',
+          entityId: primaryPatientId,
+          oldData: { 
+            primaryPatient: {
+              id: primaryPatient.id,
+              name: `${primaryPatient.firstName} ${primaryPatient.lastName}`
+            },
+            duplicatePatient: {
+              id: duplicatePatient.id,
+              name: `${duplicatePatient.firstName} ${duplicatePatient.lastName}`
+            }
+          } as any,
+          newData: { mergedPatientId: primaryPatientId } as any,
+        }
+      });
+
+      return updated;
     });
+
+    return mergedPatient;
   }
 
   /**
-   * Update appointment details
+   * Get comprehensive patient summary with all related data
    */
-  async updateAppointment(
-    appointmentId: string,
-    data: UpdateAppointmentInput,
-    userId: string
-  ): Promise<Appointment> {
-    try {
-      const validatedData = UpdateAppointmentSchema.parse(data);
-
-      const existingAppointment = await prisma.appointment.findUnique({
-        where: { id: appointmentId }
-      });
-
-      if (!existingAppointment) {
-        throw new Error('Appointment not found');
-      }
-
-      // If date or duration is changing, check for conflicts
-      if (validatedData.appointmentDate || validatedData.durationMinutes) {
-        const newDate = validatedData.appointmentDate as Date || existingAppointment.appointmentDate;
-        const newDuration = validatedData.durationMinutes || existingAppointment.durationMinutes;
-
-        const conflicts = await this.checkConflicts(
-          existingAppointment.dentistId,
-          newDate,
-          newDuration,
-          appointmentId
-        );
-
-        if (conflicts.length > 0) {
-          const conflictMessages = conflicts.map(c => c.message).join(', ');
-          throw new Error(`Cannot update appointment: ${conflictMessages}`);
-        }
-      }
-
-      const updated = await prisma.$transaction(async (tx) => {
-        const updatedAppointment = await tx.appointment.update({
-          where: { id: appointmentId },
-          data: {
-            ...validatedData,
-            appointmentDate: validatedData.appointmentDate as Date | undefined,
-            updatedAt: new Date()
-          },
+  static async getPatientSummary(patientId: string) {
+    const patient = await prisma.patient.findUnique({
+      where: { id: patientId },
+      include: {
+        treatments: {
+          orderBy: { treatmentDate: 'desc' },
           include: {
-            patient: true,
             dentist: {
               select: {
                 id: true,
                 name: true,
-                email: true,
-                specialization: true
+                specialization: true,
+              }
+            },
+            items: {
+              include: {
+                procedure: {
+                  select: {
+                    id: true,
+                    name: true,
+                    category: true,
+                    code: true,
+                  }
+                }
+              }
+            },
+            receipt: {
+              select: {
+                id: true,
+                receiptNumber: true,
+                totalAmount: true,
+                paidAmount: true,
+                balanceDue: true,
+                status: true,
+              }
+            },
+          }
+        },
+        appointments: {
+          orderBy: { appointmentDate: 'desc' },
+          include: {
+            dentist: {
+              select: {
+                id: true,
+                name: true,
+                specialization: true,
               }
             }
           }
-        });
+        },
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+          }
+        }
+      }
+    });
 
-        await tx.auditLog.create({
-          data: {
-            userId,
-            action: 'UPDATE_APPOINTMENT',
-            entityType: 'Appointment',
-            entityId: appointmentId,
-            oldData: existingAppointment as any,
-            newData: updatedAppointment as any,
-            createdAt: new Date()
+    if (!patient) {
+      throw new Error('Patient not found');
+    }
+
+    // Calculate statistics
+    const now = new Date();
+    const stats = {
+      totalAppointments: patient.appointments.length,
+      completedAppointments: patient.appointments.filter(
+        a => a.status === AppointmentStatus.COMPLETED
+      ).length,
+      upcomingAppointments: patient.appointments.filter(
+        a => a.status === AppointmentStatus.SCHEDULED && a.appointmentDate > now
+      ).length,
+      cancelledAppointments: patient.appointments.filter(
+        a => a.status === AppointmentStatus.CANCELLED
+      ).length,
+      noShowAppointments: patient.appointments.filter(
+        a => a.status === AppointmentStatus.NO_SHOW
+      ).length,
+      totalTreatments: patient.treatments.length,
+      totalSpent: patient.treatments.reduce((sum, t) => sum + t.paidAmount, 0),
+      totalOwed: patient.treatments
+        .filter(t => t.paymentStatus !== PaymentStatus.PAID)
+        .reduce((sum, t) => sum + (t.totalCost - t.paidAmount), 0),
+      averageTreatmentCost: patient.treatments.length > 0
+        ? patient.treatments.reduce((sum, t) => sum + t.totalCost, 0) / patient.treatments.length
+        : 0,
+      lastVisit: patient.lastVisitAt,
+      nextAppointment: patient.appointments
+        .filter(a => a.status === AppointmentStatus.SCHEDULED && a.appointmentDate > now)
+        .sort((a, b) => a.appointmentDate.getTime() - b.appointmentDate.getTime())[0] || null,
+    };
+
+    // Calculate age
+    const today = new Date();
+    const birthDate = new Date(patient.dateOfBirth);
+    let age = today.getFullYear() - birthDate.getFullYear();
+    const monthDiff = today.getMonth() - birthDate.getMonth();
+    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
+      age--;
+    }
+
+    return {
+      patient: {
+        ...patient,
+        age,
+        fullName: `${patient.firstName} ${patient.lastName}`,
+      },
+      statistics: stats,
+      recentActivity: {
+        lastAppointment: patient.appointments.find(a => a.status === AppointmentStatus.COMPLETED) || null,
+        lastTreatment: patient.treatments[0] || null,
+        upcomingAppointments: patient.appointments
+          .filter(a => a.status === AppointmentStatus.SCHEDULED && a.appointmentDate > now)
+          .slice(0, 3),
+      }
+    };
+  }
+
+  /**
+   * Bulk import patients from array
+   */
+  static async bulkImportPatients(
+    data: BulkImportInput,
+    createdById: string
+  ) {
+    const { patients, options } = bulkImportSchema.parse(data);
+    
+    const results = {
+      success: [] as Patient[],
+      failed: [] as { data: any; error: string }[],
+      skipped: [] as { data: any; reason: string }[],
+      updated: [] as Patient[],
+    };
+
+    for (const patientData of patients) {
+      try {
+        // Validate individual patient data
+        const validatedData = createPatientSchema.parse(patientData);
+
+        // Check for existing patient
+        const existing = await prisma.patient.findFirst({
+          where: {
+            OR: [
+              ...(validatedData.email ? [{ email: validatedData.email }] : []),
+              { phone: validatedData.phone }
+            ],
+            isActive: true
           }
         });
 
-        return updatedAppointment;
-      });
+        if (existing) {
+          if (options.skipDuplicates) {
+            results.skipped.push({
+              data: patientData,
+              reason: `Duplicate: ${existing.firstName} ${existing.lastName}`
+            });
+            continue;
+          } else if (options.updateExisting) {
+            const updated = await prisma.patient.update({
+              where: { id: existing.id },
+              data: {
+                ...validatedData,
+                updatedAt: new Date()
+              }
+            });
+            results.updated.push(updated);
+            continue;
+          } else {
+            results.failed.push({
+              data: patientData,
+              error: `Duplicate patient found: ${existing.firstName} ${existing.lastName}`
+            });
+            continue;
+          }
+        }
 
-      return updated;
-    } catch (error) {
-      if (error instanceof z.ZodError) {
-        throw new Error(`Validation error: ${JSON.stringify(error.issues)}`);
+        // Create new patient
+        const newPatient = await prisma.patient.create({
+          data: {
+            ...validatedData,
+            createdById,
+          }
+        });
+        results.success.push(newPatient);
+
+      } catch (error: any) {
+        results.failed.push({
+          data: patientData,
+          error: error.message || 'Unknown error'
+        });
       }
-      throw error;
     }
+
+    // Create audit log for bulk import
+    await prisma.auditLog.create({
+      data: {
+        userId: createdById,
+        action: 'BULK_IMPORT_PATIENTS',
+        entityType: 'Patient',
+        newData: {
+          total: patients.length,
+          success: results.success.length,
+          failed: results.failed.length,
+          skipped: results.skipped.length,
+          updated: results.updated.length,
+        } as any,
+      }
+    });
+
+    return {
+      summary: {
+        total: patients.length,
+        successful: results.success.length,
+        failed: results.failed.length,
+        skipped: results.skipped.length,
+        updated: results.updated.length,
+      },
+      results
+    };
   }
 }
 
-// Export singleton instance
-export const appointmentService = new AppointmentService();
-
-// Export for testing
-export default AppointmentService;
+export default PatientService;
