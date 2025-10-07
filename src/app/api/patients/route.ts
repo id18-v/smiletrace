@@ -1,91 +1,110 @@
-import { NextRequest, NextResponse } from 'next/server';
-import { auth } from '@/lib/auth'; // Import direct auth function
-import { PatientService, createPatientSchema } from '@/services/patient.service';
-import { z } from 'zod';
+// src/app/api/patients/route.ts
+import { NextRequest, NextResponse } from "next/server";
+import { auth } from "@/lib/auth";
+import { PatientService } from "@/services/patient.service";
+import { Gender } from "@prisma/client";
 
-// GET /api/patients - Get all patients with optional simple filters
-export async function GET(req: NextRequest) {
+export async function GET(request: NextRequest) {
   try {
-    // Check authentication using auth() instead of getServerSession
     const session = await auth();
+
     if (!session?.user) {
       return NextResponse.json(
-        { error: 'Unauthorized' }, 
+        { error: "Nu ești autentificat" },
         { status: 401 }
       );
     }
 
-    // Use search functionality with basic parameters
-    const searchParams = req.nextUrl.searchParams;
-    const filters = {
-      query: searchParams.get('q') || searchParams.get('query') || undefined,
-      page: searchParams.get('page') ? parseInt(searchParams.get('page')!) : 1,
-      limit: searchParams.get('limit') ? parseInt(searchParams.get('limit')!) : 20,
-      isActive: searchParams.get('active') === 'false' ? false : true,
-      sortBy: (searchParams.get('sortBy') || 'lastName') as any,
-      sortOrder: (searchParams.get('sortOrder') || 'asc') as any,
-    };
+    const searchParams = request.nextUrl.searchParams;
+    const page = parseInt(searchParams.get("page") || "1");
+    const pageSize = parseInt(searchParams.get("pageSize") || "20");
 
-    const result = await PatientService.searchPatients(filters);
+    const result = await PatientService.searchPatients({}, page, pageSize);
+
     return NextResponse.json(result);
   } catch (error: any) {
-    console.error('Error fetching patients:', error);
+    console.error("Error fetching patients:", error);
     return NextResponse.json(
-      { error: error.message || 'Failed to fetch patients' },
+      { error: error.message || "Eroare la încărcarea pacienților" },
       { status: 500 }
     );
   }
 }
 
-// POST /api/patients - Create new patient
-export async function POST(req: NextRequest) {
+export async function POST(request: NextRequest) {
   try {
-    // Check authentication
     const session = await auth();
+
     if (!session?.user) {
       return NextResponse.json(
-        { error: 'Unauthorized' }, 
+        { error: "Nu ești autentificat" },
         { status: 401 }
       );
     }
 
-    // Parse request body
-    const body = await req.json();
-    
-    // Create patient
-    const patient = await PatientService.createPatient(
-      body,
-      session.user.id
-    );
-
-    return NextResponse.json({
-      message: 'Patient created successfully',
-      patient
-    }, { status: 201 });
-  } catch (error: any) {
-    if (error instanceof z.ZodError) {
+    let body;
+    try {
+      body = await request.json();
+    } catch (e) {
       return NextResponse.json(
-        { 
-          error: 'Validation error', 
-          details: error.issues.map(e => ({
-            field: e.path.join('.'),
-            message: e.message
-          }))
-        },
+        { error: "Date invalide în request" },
         { status: 400 }
       );
     }
-    
-    if (error.message?.includes('already exists')) {
+
+    // Validate required fields
+    const requiredFields = ["firstName", "lastName", "phone", "dateOfBirth", "gender"];
+    for (const field of requiredFields) {
+      if (!body[field]) {
+        return NextResponse.json(
+          { error: `Câmpul ${field} este obligatoriu` },
+          { status: 400 }
+        );
+      }
+    }
+
+    // Validate gender
+    if (!["MALE", "FEMALE", "OTHER"].includes(body.gender)) {
       return NextResponse.json(
-        { error: error.message },
-        { status: 409 }
+        { error: "Gen invalid" },
+        { status: 400 }
       );
     }
-    
-    console.error('Error creating patient:', error);
+
+    // Create patient data object
+    const patientData = {
+      firstName: body.firstName,
+      lastName: body.lastName,
+      email: body.email || undefined,
+      phone: body.phone,
+      dateOfBirth: new Date(body.dateOfBirth),
+      gender: body.gender as Gender,
+      address: body.address || undefined,
+      city: body.city || undefined,
+      state: body.state || undefined,
+      zipCode: body.zipCode || undefined,
+      country: body.country || "USA",
+      bloodType: body.bloodType || undefined,
+      allergies: body.allergies || [],
+      medications: body.medications || [],
+      medicalHistory: body.medicalHistory || undefined,
+      insuranceProvider: body.insuranceProvider || undefined,
+      insurancePolicyNumber: body.insurancePolicyNumber || undefined,
+      insuranceGroupNumber: body.insuranceGroupNumber || undefined,
+      emergencyContactName: body.emergencyContactName || undefined,
+      emergencyContactPhone: body.emergencyContactPhone || undefined,
+      emergencyContactRelation: body.emergencyContactRelation || undefined,
+      notes: body.notes || undefined,
+      createdById: session.user.id,
+    };
+
+    const patient = await PatientService.createPatient(patientData);
+
+    return NextResponse.json(patient, { status: 201 });
+  } catch (error: any) {
+    console.error("Error creating patient:", error);
     return NextResponse.json(
-      { error: error.message || 'Failed to create patient' },
+      { error: error.message || "Eroare la crearea pacientului" },
       { status: 500 }
     );
   }

@@ -45,7 +45,32 @@ export const dashboardLinks: IAppPops[] = [
     href: "/dashboard3/Cal",
     icon: BookUser,
   }, 
- 
+   {
+    id: 2,
+    name: "Create User",
+    href: "/dashboard3/patients",
+    icon: User2,
+    subItems: [
+      {
+        id: 31,
+        name: "ViewPatient",
+        href: "/dashboard3/patients",
+        icon: User2,
+      },
+      {
+        id: 33,
+        name: "CreatePatient",
+        href: "/dashboard3/patients/new",
+        icon: Calendar,
+      },
+     
+       
+      
+    
+      
+    ],
+  },  
+
   {
     id: 3,
     name: "User Management",

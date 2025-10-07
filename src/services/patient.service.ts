@@ -1,155 +1,93 @@
 // src/services/patient.service.ts
-import prisma from '@/lib/db';
-import { 
-  Prisma, 
-  Patient, 
-  Gender,
-  AppointmentStatus,
-  PaymentStatus 
-} from '@prisma/client';
-import { z } from 'zod';
+import prisma from "@/lib/db";
+import { Prisma, Gender } from "@prisma/client";
 
-// Validation schemas
-export const createPatientSchema = z.object({
-  firstName: z.string().min(1, 'First name is required').max(100),
-  lastName: z.string().min(1, 'Last name is required').max(100),
-  email: z.string().email('Invalid email').optional().nullable(),
-  phone: z.string().min(10, 'Valid phone number required').max(20),
-  dateOfBirth: z.string().or(z.date()).transform(val => new Date(val)),
-  gender: z.nativeEnum(Gender),
-  address: z.string().max(255).optional().nullable(),
-  city: z.string().max(100).optional().nullable(),
-  state: z.string().max(50).optional().nullable(),
-  zipCode: z.string().max(20).optional().nullable(),
-  country: z.string().max(100).default('USA'),
-  bloodType: z.string().max(10).optional().nullable(),
-  allergies: z.array(z.string()).default([]),
-  medications: z.array(z.string()).default([]),
-  medicalHistory: z.string().optional().nullable(),
-  insuranceProvider: z.string().max(100).optional().nullable(),
-  insurancePolicyNumber: z.string().max(50).optional().nullable(),
-  insuranceGroupNumber: z.string().max(50).optional().nullable(),
-  emergencyContactName: z.string().max(100).optional().nullable(),
-  emergencyContactPhone: z.string().max(20).optional().nullable(),
-  emergencyContactRelation: z.string().max(50).optional().nullable(),
-  notes: z.string().optional().nullable(),
-});
+export interface CreatePatientInput {
+  firstName: string;
+  lastName: string;
+  email?: string;
+  phone: string;
+  dateOfBirth: Date;
+  gender: Gender;
+  address?: string;
+  city?: string;
+  state?: string;
+  zipCode?: string;
+  country?: string;
+  bloodType?: string;
+  allergies?: string[];
+  medications?: string[];
+  medicalHistory?: string;
+  insuranceProvider?: string;
+  insurancePolicyNumber?: string;
+  insuranceGroupNumber?: string;
+  emergencyContactName?: string;
+  emergencyContactPhone?: string;
+  emergencyContactRelation?: string;
+  notes?: string;
+  createdById: string;
+}
 
-export const updateMedicalHistorySchema = z.object({
-  bloodType: z.string().max(10).optional().nullable(),
-  allergies: z.array(z.string()).optional(),
-  medications: z.array(z.string()).optional(),
-  medicalHistory: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
-});
+export interface UpdateMedicalHistoryInput {
+  medicalHistory?: string;
+  allergies?: string[];
+  medications?: string[];
+  bloodType?: string;
+}
 
-export const searchPatientsSchema = z.object({
-  query: z.string().optional(),
-  firstName: z.string().optional(),
-  lastName: z.string().optional(),
-  email: z.string().optional(),
-  phone: z.string().optional(),
-  dateOfBirth: z.string().optional(),
-  gender: z.nativeEnum(Gender).optional(),
-  city: z.string().optional(),
-  state: z.string().optional(),
-  insuranceProvider: z.string().optional(),
-  hasAllergies: z.boolean().optional(),
-  hasMedications: z.boolean().optional(),
-  isActive: z.boolean().optional(),
-  createdAfter: z.string().optional(),
-  createdBefore: z.string().optional(),
-  lastVisitAfter: z.string().optional(),
-  lastVisitBefore: z.string().optional(),
-  page: z.number().min(1).default(1),
-  limit: z.number().min(1).max(100).default(20),
-  sortBy: z.enum(['createdAt', 'lastName', 'firstName', 'lastVisitAt']).default('lastName'),
-  sortOrder: z.enum(['asc', 'desc']).default('asc'),
-});
+export interface SearchPatientsFilters {
+  query?: string;
+  gender?: Gender;
+  city?: string;
+  state?: string;
+  insuranceProvider?: string;
+  isActive?: boolean;
+  minAge?: number;
+  maxAge?: number;
+  hasAllergies?: boolean;
+  hasMedications?: boolean;
+}
 
-export const bulkImportSchema = z.object({
-  patients: z.array(createPatientSchema),
-  options: z.object({
-    skipDuplicates: z.boolean().default(false),
-    updateExisting: z.boolean().default(false),
-  }).default({ skipDuplicates: false, updateExisting: false })
-});
+export interface PatientSummary {
+  patient: any;
+  totalAppointments: number;
+  upcomingAppointments: number;
+  completedAppointments: number;
+  totalTreatments: number;
+  totalSpent: number;
+  balanceDue: number;
+  lastVisit?: Date;
+  nextAppointment?: Date;
+}
 
-export const mergePatientSchema = z.object({
-  primaryPatientId: z.string().uuid(),
-  duplicatePatientId: z.string().uuid(),
-});
-
-// Types
-export type CreatePatientInput = z.infer<typeof createPatientSchema>;
-export type UpdateMedicalHistoryInput = z.infer<typeof updateMedicalHistorySchema>;
-export type SearchPatientsInput = z.infer<typeof searchPatientsSchema>;
-export type BulkImportInput = z.infer<typeof bulkImportSchema>;
-export type MergePatientInput = z.infer<typeof mergePatientSchema>;
-
-// Service Class
 export class PatientService {
-  /**
-   * Create a new patient with full validation and duplicate checking
-   */
-  static async createPatient(data: CreatePatientInput, createdById: string): Promise<Patient> {
-    // Validate input
-    const validatedData = createPatientSchema.parse(data);
+  // Create a new patient with full registration
+  static async createPatient(data: CreatePatientInput) {
+    try {
+      // Check for duplicate email if provided
+      if (data.email) {
+        const existingPatient = await prisma.patient.findUnique({
+          where: { email: data.email },
+        });
 
-    // Check for existing patient with same email (if provided)
-    if (validatedData.email) {
-      const existingEmail = await prisma.patient.findFirst({
-        where: { 
-          email: validatedData.email,
-          isActive: true 
+        if (existingPatient) {
+          throw new Error("Un pacient cu acest email există deja");
         }
+      }
+
+      // Check for duplicate phone
+      const existingPhone = await prisma.patient.findFirst({
+        where: { phone: data.phone },
       });
-      
-      if (existingEmail) {
-        throw new Error('A patient with this email already exists');
-      }
-    }
 
-    // Check for existing patient with same phone
-    const existingPhone = await prisma.patient.findFirst({
-      where: { 
-        phone: validatedData.phone,
-        isActive: true 
+      if (existingPhone) {
+        throw new Error("Un pacient cu acest număr de telefon există deja");
       }
-    });
-    
-    if (existingPhone) {
-      throw new Error('A patient with this phone number already exists');
-    }
 
-    // Create patient with audit log in transaction
-    const patient = await prisma.$transaction(async (tx) => {
-      const newPatient = await tx.patient.create({
+      const patient = await prisma.patient.create({
         data: {
-          firstName: validatedData.firstName,
-          lastName: validatedData.lastName,
-          email: validatedData.email,
-          phone: validatedData.phone,
-          dateOfBirth: validatedData.dateOfBirth,
-          gender: validatedData.gender,
-          address: validatedData.address,
-          city: validatedData.city,
-          state: validatedData.state,
-          zipCode: validatedData.zipCode,
-          country: validatedData.country,
-          bloodType: validatedData.bloodType,
-          allergies: validatedData.allergies,
-          medications: validatedData.medications,
-          medicalHistory: validatedData.medicalHistory,
-          insuranceProvider: validatedData.insuranceProvider,
-          insurancePolicyNumber: validatedData.insurancePolicyNumber,
-          insuranceGroupNumber: validatedData.insuranceGroupNumber,
-          emergencyContactName: validatedData.emergencyContactName,
-          emergencyContactPhone: validatedData.emergencyContactPhone,
-          emergencyContactRelation: validatedData.emergencyContactRelation,
-          notes: validatedData.notes,
-          createdById,
-          isActive: true,
+          ...data,
+          country: data.country || "USA",
         },
         include: {
           createdBy: {
@@ -157,627 +95,404 @@ export class PatientService {
               id: true,
               name: true,
               email: true,
-            }
-          }
-        }
+            },
+          },
+        },
       });
 
       // Create audit log
-      await tx.auditLog.create({
+      await prisma.auditLog.create({
         data: {
-          userId: createdById,
-          action: 'CREATE_PATIENT',
-          entityType: 'Patient',
-          entityId: newPatient.id,
-          newData: newPatient as any,
-        }
+          userId: data.createdById,
+          action: "PATIENT_CREATED",
+          entityType: "Patient",
+          entityId: patient.id,
+          newData: patient as any,
+        },
       });
 
-      return newPatient;
-    });
-
-    return patient;
+      return patient;
+    } catch (error) {
+      console.error("Error creating patient:", error);
+      throw error;
+    }
   }
 
-  /**
-   * Update patient medical history with validation and audit trail
-   */
+  // Update medical history and related information
   static async updateMedicalHistory(
-    patientId: string, 
+    patientId: string,
     data: UpdateMedicalHistoryInput,
-    userId: string
-  ): Promise<Patient> {
-    // Validate input
-    const validatedData = updateMedicalHistorySchema.parse(data);
+    updatedById: string
+  ) {
+    try {
+      const oldPatient = await prisma.patient.findUnique({
+        where: { id: patientId },
+      });
 
-    // Get existing patient
-    const patient = await prisma.patient.findUnique({
-      where: { id: patientId }
-    });
+      if (!oldPatient) {
+        throw new Error("Pacientul nu a fost găsit");
+      }
 
-    if (!patient) {
-      throw new Error('Patient not found');
-    }
-
-    if (!patient.isActive) {
-      throw new Error('Cannot update inactive patient');
-    }
-
-    // Update with transaction and audit log
-    const updatedPatient = await prisma.$transaction(async (tx) => {
-      // Store old data for audit
-      const oldData = {
-        bloodType: patient.bloodType,
-        allergies: patient.allergies,
-        medications: patient.medications,
-        medicalHistory: patient.medicalHistory,
-        notes: patient.notes,
-      };
-
-      // Update patient
-      const updated = await tx.patient.update({
+      const updatedPatient = await prisma.patient.update({
         where: { id: patientId },
         data: {
-          bloodType: validatedData.bloodType !== undefined ? validatedData.bloodType : patient.bloodType,
-          allergies: validatedData.allergies !== undefined ? validatedData.allergies : patient.allergies,
-          medications: validatedData.medications !== undefined ? validatedData.medications : patient.medications,
-          medicalHistory: validatedData.medicalHistory !== undefined ? validatedData.medicalHistory : patient.medicalHistory,
-          notes: validatedData.notes !== undefined ? validatedData.notes : patient.notes,
-          updatedAt: new Date(),
+          medicalHistory: data.medicalHistory,
+          allergies: data.allergies,
+          medications: data.medications,
+          bloodType: data.bloodType,
         },
-        include: {
-          treatments: {
-            take: 5,
-            orderBy: { treatmentDate: 'desc' },
-            include: {
-              dentist: {
-                select: {
-                  id: true,
-                  name: true,
-                  specialization: true,
-                }
-              }
-            }
-          },
-          appointments: {
-            take: 5,
-            orderBy: { appointmentDate: 'desc' },
-            include: {
-              dentist: {
-                select: {
-                  id: true,
-                  name: true,
-                  specialization: true,
-                }
-              }
-            }
-          }
-        }
       });
 
       // Create audit log
-      await tx.auditLog.create({
+      await prisma.auditLog.create({
         data: {
-          userId,
-          action: 'UPDATE_MEDICAL_HISTORY',
-          entityType: 'Patient',
+          userId: updatedById,
+          action: "PATIENT_MEDICAL_HISTORY_UPDATED",
+          entityType: "Patient",
           entityId: patientId,
-          oldData: oldData as any,
-          newData: validatedData as any,
-        }
+          oldData: {
+            medicalHistory: oldPatient.medicalHistory,
+            allergies: oldPatient.allergies,
+            medications: oldPatient.medications,
+            bloodType: oldPatient.bloodType,
+          } as any,
+          newData: {
+            medicalHistory: updatedPatient.medicalHistory,
+            allergies: updatedPatient.allergies,
+            medications: updatedPatient.medications,
+            bloodType: updatedPatient.bloodType,
+          } as any,
+        },
       });
 
-      return updated;
-    });
-
-    return updatedPatient;
+      return updatedPatient;
+    } catch (error) {
+      console.error("Error updating medical history:", error);
+      throw error;
+    }
   }
 
-  /**
-   * Advanced patient search with multiple filters and pagination
-   */
-  static async searchPatients(filters: SearchPatientsInput) {
-    // Validate input
-    const validatedFilters = searchPatientsSchema.parse(filters);
-    
-    const {
-      query,
-      page = 1,
-      limit = 20,
-      sortBy = 'lastName',
-      sortOrder = 'asc',
-      ...searchFilters
-    } = validatedFilters;
+  // Advanced search with multiple filters
+  static async searchPatients(
+    filters: SearchPatientsFilters,
+    page: number = 1,
+    pageSize: number = 20
+  ) {
+    try {
+      const where: Prisma.PatientWhereInput = {};
 
-    // Build where clause
-    const where: Prisma.PatientWhereInput = {};
-    const andConditions: Prisma.PatientWhereInput[] = [];
+      // Text search across multiple fields
+      if (filters.query) {
+        where.OR = [
+          { firstName: { contains: filters.query, mode: "insensitive" } },
+          { lastName: { contains: filters.query, mode: "insensitive" } },
+          { email: { contains: filters.query, mode: "insensitive" } },
+          { phone: { contains: filters.query } },
+        ];
+      }
 
-    // General text search
-    if (query) {
-      andConditions.push({
-        OR: [
-          { firstName: { contains: query, mode: 'insensitive' } },
-          { lastName: { contains: query, mode: 'insensitive' } },
-          { email: { contains: query, mode: 'insensitive' } },
-          { phone: { contains: query } },
-          { notes: { contains: query, mode: 'insensitive' } },
-        ]
-      });
-    }
+      // Filter by gender
+      if (filters.gender) {
+        where.gender = filters.gender;
+      }
 
-    // Specific field filters
-    if (searchFilters.firstName) {
-      andConditions.push({ firstName: { contains: searchFilters.firstName, mode: 'insensitive' } });
-    }
-    if (searchFilters.lastName) {
-      andConditions.push({ lastName: { contains: searchFilters.lastName, mode: 'insensitive' } });
-    }
-    if (searchFilters.email) {
-      andConditions.push({ email: { contains: searchFilters.email, mode: 'insensitive' } });
-    }
-    if (searchFilters.phone) {
-      andConditions.push({ phone: { contains: searchFilters.phone } });
-    }
-    if (searchFilters.gender) {
-      andConditions.push({ gender: searchFilters.gender });
-    }
-    if (searchFilters.city) {
-      andConditions.push({ city: { contains: searchFilters.city, mode: 'insensitive' } });
-    }
-    if (searchFilters.state) {
-      andConditions.push({ state: { contains: searchFilters.state, mode: 'insensitive' } });
-    }
-    if (searchFilters.insuranceProvider) {
-      andConditions.push({ 
-        insuranceProvider: { contains: searchFilters.insuranceProvider, mode: 'insensitive' } 
-      });
-    }
+      // Filter by location
+      if (filters.city) {
+        where.city = { contains: filters.city, mode: "insensitive" };
+      }
 
-    // Boolean filters
-    if (searchFilters.hasAllergies === true) {
-      andConditions.push({ 
-        NOT: { allergies: { isEmpty: true } }
-      });
-    }
-    if (searchFilters.hasMedications === true) {
-      andConditions.push({ 
-        NOT: { medications: { isEmpty: true } }
-      });
-    }
-    if (searchFilters.isActive !== undefined) {
-      andConditions.push({ isActive: searchFilters.isActive });
-    }
+      if (filters.state) {
+        where.state = filters.state;
+      }
 
-    // Date filters
-    if (searchFilters.dateOfBirth) {
-      const dob = new Date(searchFilters.dateOfBirth);
-      const nextDay = new Date(dob);
-      nextDay.setDate(nextDay.getDate() + 1);
-      andConditions.push({ 
-        dateOfBirth: {
-          gte: dob,
-          lt: nextDay
+      // Filter by insurance
+      if (filters.insuranceProvider) {
+        where.insuranceProvider = {
+          contains: filters.insuranceProvider,
+          mode: "insensitive",
+        };
+      }
+
+      // Filter by active status
+      if (filters.isActive !== undefined) {
+        where.isActive = filters.isActive;
+      }
+
+      // Filter by age range
+      if (filters.minAge || filters.maxAge) {
+        const today = new Date();
+
+        const dateFilter: { gte?: Date; lte?: Date } = {};
+
+        if (filters.maxAge) {
+          const minDate = new Date(
+            today.getFullYear() - filters.maxAge,
+            today.getMonth(),
+            today.getDate()
+          );
+          dateFilter.gte = minDate;
         }
-      });
-    }
-    if (searchFilters.createdAfter) {
-      andConditions.push({ createdAt: { gte: new Date(searchFilters.createdAfter) } });
-    }
-    if (searchFilters.createdBefore) {
-      andConditions.push({ createdAt: { lte: new Date(searchFilters.createdBefore) } });
-    }
-    if (searchFilters.lastVisitAfter) {
-      andConditions.push({ lastVisitAt: { gte: new Date(searchFilters.lastVisitAfter) } });
-    }
-    if (searchFilters.lastVisitBefore) {
-      andConditions.push({ lastVisitAt: { lte: new Date(searchFilters.lastVisitBefore) } });
-    }
 
-    // Apply conditions
-    if (andConditions.length > 0) {
-      where.AND = andConditions;
-    }
+        if (filters.minAge) {
+          const maxDate = new Date(
+            today.getFullYear() - filters.minAge,
+            today.getMonth(),
+            today.getDate()
+          );
+          dateFilter.lte = maxDate;
+        }
 
-    // Execute query with pagination
-    const [patients, total] = await prisma.$transaction([
-      prisma.patient.findMany({
-        where,
-        skip: (page - 1) * limit,
-        take: limit,
-        orderBy: { [sortBy]: sortOrder },
-        include: {
-          _count: {
-            select: {
-              appointments: true,
-              treatments: true,
-            }
-          },
-          appointments: {
-            take: 1,
-            orderBy: { appointmentDate: 'desc' },
-            where: {
-              status: 'SCHEDULED'
+        where.dateOfBirth = dateFilter;
+      }
+
+      // Filter by allergies
+      if (filters.hasAllergies) {
+        where.allergies = { isEmpty: false };
+      }
+
+      // Filter by medications
+      if (filters.hasMedications) {
+        where.medications = { isEmpty: false };
+      }
+
+      const [patients, total] = await Promise.all([
+        prisma.patient.findMany({
+          where,
+          include: {
+            createdBy: {
+              select: {
+                id: true,
+                name: true,
+                email: true,
+              },
             },
-            select: {
-              id: true,
-              appointmentDate: true,
-              status: true,
-              type: true,
-            }
+            _count: {
+              select: {
+                appointments: true,
+                treatments: true,
+              },
+            },
           },
+          orderBy: [{ lastName: "asc" }, { firstName: "asc" }],
+          skip: (page - 1) * pageSize,
+          take: pageSize,
+        }),
+        prisma.patient.count({ where }),
+      ]);
+
+      return {
+        patients,
+        total,
+        page,
+        pageSize,
+        totalPages: Math.ceil(total / pageSize),
+      };
+    } catch (error) {
+      console.error("Error searching patients:", error);
+      throw error;
+    }
+  }
+
+  // Get complete patient summary with statistics
+  static async getPatientSummary(patientId: string): Promise<PatientSummary> {
+    try {
+      const patient = await prisma.patient.findUnique({
+        where: { id: patientId },
+        include: {
           createdBy: {
             select: {
               id: true,
               name: true,
               email: true,
-            }
-          }
-        }
-      }),
-      prisma.patient.count({ where })
-    ]);
+            },
+          },
+        },
+      });
 
-    return {
-      data: patients,
-      pagination: {
-        page,
-        limit,
-        total,
-        pages: Math.ceil(total / limit),
-        hasMore: page < Math.ceil(total / limit)
+      if (!patient) {
+        throw new Error("Pacientul nu a fost găsit");
       }
-    };
+
+      // Get appointment statistics
+      const [
+        totalAppointments,
+        completedAppointments,
+        upcomingAppointments,
+        nextAppointment,
+      ] = await Promise.all([
+        prisma.appointment.count({
+          where: { patientId },
+        }),
+        prisma.appointment.count({
+          where: {
+            patientId,
+            status: "COMPLETED",
+          },
+        }),
+        prisma.appointment.count({
+          where: {
+            patientId,
+            status: { in: ["SCHEDULED", "CONFIRMED"] },
+            appointmentDate: { gte: new Date() },
+          },
+        }),
+        prisma.appointment.findFirst({
+          where: {
+            patientId,
+            status: { in: ["SCHEDULED", "CONFIRMED"] },
+            appointmentDate: { gte: new Date() },
+          },
+          orderBy: { appointmentDate: "asc" },
+        }),
+      ]);
+
+      // Get treatment statistics
+      const treatments = await prisma.treatment.findMany({
+        where: { patientId },
+        select: {
+          totalCost: true,
+          paidAmount: true,
+          paymentStatus: true,
+        },
+      });
+
+      const totalSpent = treatments.reduce(
+        (sum, t) => sum + t.paidAmount,
+        0
+      );
+      const balanceDue = treatments.reduce(
+        (sum, t) => sum + (t.totalCost - t.paidAmount),
+        0
+      );
+
+      return {
+        patient,
+        totalAppointments,
+        upcomingAppointments,
+        completedAppointments,
+        totalTreatments: treatments.length,
+        totalSpent,
+        balanceDue,
+        lastVisit: patient.lastVisitAt || undefined,
+        nextAppointment: nextAppointment?.appointmentDate || undefined,
+      };
+    } catch (error) {
+      console.error("Error getting patient summary:", error);
+      throw error;
+    }
   }
 
-  /**
-   * Merge duplicate patient records
-   */
+  // Merge duplicate patient records
   static async mergePatientRecords(
     primaryPatientId: string,
     duplicatePatientId: string,
-    userId: string
-  ): Promise<Patient> {
-    // Validate IDs are different
-    if (primaryPatientId === duplicatePatientId) {
-      throw new Error('Cannot merge a patient with itself');
-    }
-
-    // Get both patients
-    const [primaryPatient, duplicatePatient] = await Promise.all([
-      prisma.patient.findUnique({ 
-        where: { id: primaryPatientId },
-        include: {
-          appointments: true,
-          treatments: true
-        }
-      }),
-      prisma.patient.findUnique({ 
-        where: { id: duplicatePatientId },
-        include: {
-          appointments: true,
-          treatments: true
-        }
-      })
-    ]);
-
-    if (!primaryPatient) {
-      throw new Error('Primary patient not found');
-    }
-    if (!duplicatePatient) {
-      throw new Error('Duplicate patient not found');
-    }
-
-    // Perform merge in transaction
-    const mergedPatient = await prisma.$transaction(async (tx) => {
-      // Transfer all appointments to primary patient
-      await tx.appointment.updateMany({
-        where: { patientId: duplicatePatientId },
-        data: { patientId: primaryPatientId }
-      });
-
-      // Transfer all treatments to primary patient
-      await tx.treatment.updateMany({
-        where: { patientId: duplicatePatientId },
-        data: { patientId: primaryPatientId }
-      });
-
-      // Prepare merged data
-      const mergedNotes = [primaryPatient.notes, duplicatePatient.notes]
-        .filter(Boolean)
-        .join('\n\n--- Merged from duplicate record ---\n\n');
-
-      const mergedMedicalHistory = [primaryPatient.medicalHistory, duplicatePatient.medicalHistory]
-        .filter(Boolean)
-        .join('\n\n--- Merged from duplicate record ---\n\n');
-
-      // Merge arrays without duplicates
-      const mergedAllergies = Array.from(new Set([
-        ...primaryPatient.allergies,
-        ...duplicatePatient.allergies
-      ]));
-
-      const mergedMedications = Array.from(new Set([
-        ...primaryPatient.medications,
-        ...duplicatePatient.medications
-      ]));
-
-      // Update primary patient with merged data
-      const updated = await tx.patient.update({
-        where: { id: primaryPatientId },
-        data: {
-          // Keep primary patient basic info, fill missing from duplicate
-          email: primaryPatient.email || duplicatePatient.email,
-          address: primaryPatient.address || duplicatePatient.address,
-          city: primaryPatient.city || duplicatePatient.city,
-          state: primaryPatient.state || duplicatePatient.state,
-          zipCode: primaryPatient.zipCode || duplicatePatient.zipCode,
-          bloodType: primaryPatient.bloodType || duplicatePatient.bloodType,
-          allergies: mergedAllergies,
-          medications: mergedMedications,
-          medicalHistory: mergedMedicalHistory || undefined,
-          insuranceProvider: primaryPatient.insuranceProvider || duplicatePatient.insuranceProvider,
-          insurancePolicyNumber: primaryPatient.insurancePolicyNumber || duplicatePatient.insurancePolicyNumber,
-          insuranceGroupNumber: primaryPatient.insuranceGroupNumber || duplicatePatient.insuranceGroupNumber,
-          emergencyContactName: primaryPatient.emergencyContactName || duplicatePatient.emergencyContactName,
-          emergencyContactPhone: primaryPatient.emergencyContactPhone || duplicatePatient.emergencyContactPhone,
-          emergencyContactRelation: primaryPatient.emergencyContactRelation || duplicatePatient.emergencyContactRelation,
-          lastVisitAt: duplicatePatient.lastVisitAt && 
-            (!primaryPatient.lastVisitAt || duplicatePatient.lastVisitAt > primaryPatient.lastVisitAt)
-            ? duplicatePatient.lastVisitAt 
-            : primaryPatient.lastVisitAt,
-          notes: mergedNotes || undefined,
-          updatedAt: new Date()
-        },
-        include: {
-          appointments: {
-            orderBy: { appointmentDate: 'desc' },
-            take: 5
-          },
-          treatments: {
-            orderBy: { treatmentDate: 'desc' },
-            take: 5
-          },
-          createdBy: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            }
-          }
-        }
-      });
-
-      // Soft delete duplicate patient
-      await tx.patient.update({
-        where: { id: duplicatePatientId },
-        data: { 
-          isActive: false,
-          notes: `Merged into patient ${primaryPatientId} on ${new Date().toISOString()}`
-        }
-      });
-
-      // Create audit log
-      await tx.auditLog.create({
-        data: {
-          userId,
-          action: 'MERGE_PATIENTS',
-          entityType: 'Patient',
-          entityId: primaryPatientId,
-          oldData: { 
-            primaryPatient: {
-              id: primaryPatient.id,
-              name: `${primaryPatient.firstName} ${primaryPatient.lastName}`
+    mergedById: string
+  ) {
+    try {
+      return await prisma.$transaction(async (tx) => {
+        const [primaryPatient, duplicatePatient] = await Promise.all([
+          tx.patient.findUnique({ where: { id: primaryPatientId } }),
+          tx.patient.findUnique({
+            where: { id: duplicatePatientId },
+            include: {
+              appointments: true,
+              treatments: true,
             },
-            duplicatePatient: {
-              id: duplicatePatient.id,
-              name: `${duplicatePatient.firstName} ${duplicatePatient.lastName}`
-            }
-          } as any,
-          newData: { mergedPatientId: primaryPatientId } as any,
+          }),
+        ]);
+
+        if (!primaryPatient || !duplicatePatient) {
+          throw new Error("Unul dintre pacienți nu a fost găsit");
         }
+
+        // Move all appointments to primary patient
+        await tx.appointment.updateMany({
+          where: { patientId: duplicatePatientId },
+          data: { patientId: primaryPatientId },
+        });
+
+        // Move all treatments to primary patient
+        await tx.treatment.updateMany({
+          where: { patientId: duplicatePatientId },
+          data: { patientId: primaryPatientId },
+        });
+
+        // Merge medical information if missing in primary
+        const updateData: Prisma.PatientUpdateInput = {};
+        
+        if (!primaryPatient.medicalHistory && duplicatePatient.medicalHistory) {
+          updateData.medicalHistory = duplicatePatient.medicalHistory;
+        }
+
+        if (duplicatePatient.allergies.length > 0) {
+          const mergedAllergies = [
+            ...new Set([...primaryPatient.allergies, ...duplicatePatient.allergies]),
+          ];
+          updateData.allergies = mergedAllergies;
+        }
+
+        if (duplicatePatient.medications.length > 0) {
+          const mergedMedications = [
+            ...new Set([...primaryPatient.medications, ...duplicatePatient.medications]),
+          ];
+          updateData.medications = mergedMedications;
+        }
+
+        // Update primary patient with merged data
+        const updatedPatient = await tx.patient.update({
+          where: { id: primaryPatientId },
+          data: updateData,
+        });
+
+        // Delete duplicate patient
+        await tx.patient.delete({
+          where: { id: duplicatePatientId },
+        });
+
+        // Create audit log
+        await tx.auditLog.create({
+          data: {
+            userId: mergedById,
+            action: "PATIENTS_MERGED",
+            entityType: "Patient",
+            entityId: primaryPatientId,
+            oldData: {
+              primaryPatient,
+              duplicatePatient,
+            } as any,
+            newData: updatedPatient as any,
+          },
+        });
+
+        return updatedPatient;
       });
-
-      return updated;
-    });
-
-    return mergedPatient;
+    } catch (error) {
+      console.error("Error merging patients:", error);
+      throw error;
+    }
   }
 
-  /**
-   * Get comprehensive patient summary with all related data
-   */
-  static async getPatientSummary(patientId: string) {
-    const patient = await prisma.patient.findUnique({
-      where: { id: patientId },
-      include: {
-        treatments: {
-          orderBy: { treatmentDate: 'desc' },
-          include: {
-            dentist: {
-              select: {
-                id: true,
-                name: true,
-                specialization: true,
-              }
-            },
-            items: {
-              include: {
-                procedure: {
-                  select: {
-                    id: true,
-                    name: true,
-                    category: true,
-                    code: true,
-                  }
-                }
-              }
-            },
-            receipt: {
-              select: {
-                id: true,
-                receiptNumber: true,
-                totalAmount: true,
-                paidAmount: true,
-                balanceDue: true,
-                status: true,
-              }
-            },
-          }
-        },
-        appointments: {
-          orderBy: { appointmentDate: 'desc' },
-          include: {
-            dentist: {
-              select: {
-                id: true,
-                name: true,
-                specialization: true,
-              }
-            }
-          }
-        },
-        createdBy: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          }
-        }
-      }
-    });
-
-    if (!patient) {
-      throw new Error('Patient not found');
-    }
-
-    // Calculate statistics
-    const now = new Date();
-    const stats = {
-      totalAppointments: patient.appointments.length,
-      completedAppointments: patient.appointments.filter(
-        a => a.status === AppointmentStatus.COMPLETED
-      ).length,
-      upcomingAppointments: patient.appointments.filter(
-        a => a.status === AppointmentStatus.SCHEDULED && a.appointmentDate > now
-      ).length,
-      cancelledAppointments: patient.appointments.filter(
-        a => a.status === AppointmentStatus.CANCELLED
-      ).length,
-      noShowAppointments: patient.appointments.filter(
-        a => a.status === AppointmentStatus.NO_SHOW
-      ).length,
-      totalTreatments: patient.treatments.length,
-      totalSpent: patient.treatments.reduce((sum, t) => sum + t.paidAmount, 0),
-      totalOwed: patient.treatments
-        .filter(t => t.paymentStatus !== PaymentStatus.PAID)
-        .reduce((sum, t) => sum + (t.totalCost - t.paidAmount), 0),
-      averageTreatmentCost: patient.treatments.length > 0
-        ? patient.treatments.reduce((sum, t) => sum + t.totalCost, 0) / patient.treatments.length
-        : 0,
-      lastVisit: patient.lastVisitAt,
-      nextAppointment: patient.appointments
-        .filter(a => a.status === AppointmentStatus.SCHEDULED && a.appointmentDate > now)
-        .sort((a, b) => a.appointmentDate.getTime() - b.appointmentDate.getTime())[0] || null,
-    };
-
-    // Calculate age
-    const today = new Date();
-    const birthDate = new Date(patient.dateOfBirth);
-    let age = today.getFullYear() - birthDate.getFullYear();
-    const monthDiff = today.getMonth() - birthDate.getMonth();
-    if (monthDiff < 0 || (monthDiff === 0 && today.getDate() < birthDate.getDate())) {
-      age--;
-    }
-
-    return {
-      patient: {
-        ...patient,
-        age,
-        fullName: `${patient.firstName} ${patient.lastName}`,
-      },
-      statistics: stats,
-      recentActivity: {
-        lastAppointment: patient.appointments.find(a => a.status === AppointmentStatus.COMPLETED) || null,
-        lastTreatment: patient.treatments[0] || null,
-        upcomingAppointments: patient.appointments
-          .filter(a => a.status === AppointmentStatus.SCHEDULED && a.appointmentDate > now)
-          .slice(0, 3),
-      }
-    };
-  }
-
-  /**
-   * Bulk import patients from array
-   */
-  static async bulkImportPatients(
-    data: BulkImportInput,
+  // Bulk import patients
+  static async importPatients(
+    patients: CreatePatientInput[],
     createdById: string
   ) {
-    const { patients, options } = bulkImportSchema.parse(data);
-    
     const results = {
-      success: [] as Patient[],
-      failed: [] as { data: any; error: string }[],
-      skipped: [] as { data: any; reason: string }[],
-      updated: [] as Patient[],
+      success: 0,
+      failed: 0,
+      errors: [] as { index: number; patient: any; error: string }[],
     };
 
-    for (const patientData of patients) {
+    for (let i = 0; i < patients.length; i++) {
       try {
-        // Validate individual patient data
-        const validatedData = createPatientSchema.parse(patientData);
-
-        // Check for existing patient
-        const existing = await prisma.patient.findFirst({
-          where: {
-            OR: [
-              ...(validatedData.email ? [{ email: validatedData.email }] : []),
-              { phone: validatedData.phone }
-            ],
-            isActive: true
-          }
-        });
-
-        if (existing) {
-          if (options.skipDuplicates) {
-            results.skipped.push({
-              data: patientData,
-              reason: `Duplicate: ${existing.firstName} ${existing.lastName}`
-            });
-            continue;
-          } else if (options.updateExisting) {
-            const updated = await prisma.patient.update({
-              where: { id: existing.id },
-              data: {
-                ...validatedData,
-                updatedAt: new Date()
-              }
-            });
-            results.updated.push(updated);
-            continue;
-          } else {
-            results.failed.push({
-              data: patientData,
-              error: `Duplicate patient found: ${existing.firstName} ${existing.lastName}`
-            });
-            continue;
-          }
-        }
-
-        // Create new patient
-        const newPatient = await prisma.patient.create({
-          data: {
-            ...validatedData,
-            createdById,
-          }
-        });
-        results.success.push(newPatient);
-
+        await this.createPatient({ ...patients[i], createdById });
+        results.success++;
       } catch (error: any) {
-        results.failed.push({
-          data: patientData,
-          error: error.message || 'Unknown error'
+        results.failed++;
+        results.errors.push({
+          index: i,
+          patient: patients[i],
+          error: error.message,
         });
       }
     }
@@ -786,29 +501,12 @@ export class PatientService {
     await prisma.auditLog.create({
       data: {
         userId: createdById,
-        action: 'BULK_IMPORT_PATIENTS',
-        entityType: 'Patient',
-        newData: {
-          total: patients.length,
-          success: results.success.length,
-          failed: results.failed.length,
-          skipped: results.skipped.length,
-          updated: results.updated.length,
-        } as any,
-      }
+        action: "PATIENTS_BULK_IMPORT",
+        entityType: "Patient",
+        newData: results as any,
+      },
     });
 
-    return {
-      summary: {
-        total: patients.length,
-        successful: results.success.length,
-        failed: results.failed.length,
-        skipped: results.skipped.length,
-        updated: results.updated.length,
-      },
-      results
-    };
+    return results;
   }
 }
-
-export default PatientService;
