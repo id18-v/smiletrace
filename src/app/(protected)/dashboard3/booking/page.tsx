@@ -518,7 +518,7 @@ export default function BookingsPage() {
                 {filterBookings(calcomBookings).map((booking) => (
                   <div
                     key={booking.id}
-                    className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-lg transition-all hover:border-blue-300 dark:hover:border-blue-600 bg-gradient-to-r from-white to-gray-50 dark:gray-1000 dark:to-gray-900"
+                    className="border border-gray-200 dark:border-gray-700 rounded-lg p-4 hover:shadow-lg transition-all hover:border-blue-300 dark:hover:border-blue-600"
                   >
                     <div className="flex items-start justify-between mb-3">
                       <div className="flex items-center gap-2">
