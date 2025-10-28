@@ -2,10 +2,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import { PatientService } from "@/services/patient.service";
+import { id } from "zod/v4/locales";
 
 export async function GET(
+  
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await auth();
@@ -17,7 +19,9 @@ export async function GET(
       );
     }
 
-    const summary = await PatientService.getPatientSummary(params.id);
+    const { id } = await params;
+
+    const summary = await PatientService.getPatientSummary(id);
 
     return NextResponse.json(summary);
   } catch (error: any) {

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, Suspense } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { signIn } from 'next-auth/react'
 import { useForm } from 'react-hook-form'
@@ -9,7 +9,7 @@ import * as z from 'zod'
 import Link from 'next/link'
 import Image from 'next/image'
 import { toast } from 'react-hot-toast'
-import { Eye, EyeOff, Loader2, Mail, Lock, Activity } from 'lucide-react'
+import { Eye, EyeOff, Loader2, Mail, Lock } from 'lucide-react'
 import { useTheme } from 'next-themes'
 
 const loginSchema = z.object({
@@ -19,7 +19,8 @@ const loginSchema = z.object({
 
 type LoginFormData = z.infer<typeof loginSchema>
 
-export default function LoginPage() {
+// ✅ Componenta care folosește useSearchParams - separată
+function LoginFormContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const callbackUrl = searchParams.get('from') || '/dashboard3'
@@ -53,7 +54,7 @@ export default function LoginPage() {
         router.push(callbackUrl)
         router.refresh()
       }
-    } catch (error) {
+    } catch {
       toast.error('A apărut o eroare. Încearcă din nou.')
     } finally {
       setIsLoading(false)
@@ -64,7 +65,7 @@ export default function LoginPage() {
     setIsLoading(true)
     try {
       await signIn('google', { callbackUrl })
-    } catch (error) {
+    } catch {
       toast.error('Eroare la autentificarea cu Google')
     } finally {
       setIsLoading(false)
@@ -191,5 +192,21 @@ export default function LoginPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+// ✅ Componenta principală cu Suspense boundary
+export default function LoginPage() {
+  return (
+    <Suspense fallback={
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 dark:from-gray-900 dark:to-gray-800">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-blue-600" />
+          <p className="mt-4 text-gray-600 dark:text-gray-400">Se încarcă...</p>
+        </div>
+      </div>
+    }>
+      <LoginFormContent />
+    </Suspense>
   )
 }
