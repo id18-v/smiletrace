@@ -18,7 +18,7 @@ export async function GET() {
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Cal.com API error:', response.status, errorText);
+      //console.error('Cal.com API error:', response.status, errorText);
       return NextResponse.json(
         { error: `API error: ${response.status}`, details: errorText },
         { status: response.status }
@@ -26,7 +26,6 @@ export async function GET() {
     }
 
     const data = await response.json();
-    console.log('✅ Bookings received:', data);
 
     // Transformă datele în formatul nostru
     const bookings = data.data.map((booking: any) => ({
@@ -59,7 +58,7 @@ export async function GET() {
     });
 
   } catch (error) {
-    console.error('Error fetching bookings:', error);
+   // console.error('Error fetching bookings:', error);
     return NextResponse.json(
       { error: 'Failed to fetch bookings', details: error instanceof Error ? error.message : String(error) },
       { status: 500 }
