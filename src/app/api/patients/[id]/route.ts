@@ -1,14 +1,19 @@
+
 // src/app/api/patients/[id]/route.ts
 import { NextRequest, NextResponse } from "next/server";
 import { auth } from "@/lib/auth";
 import prisma from "@/lib/db";
 import { Gender } from "@prisma/client";
 
+// ✅ UPDATED FOR NEXT.JS 15: params is now a Promise
 export async function GET(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // ✅ UPDATED: await params to get the actual values
+    const { id } = await params;
+    
     const session = await auth();
 
     if (!session?.user) {
@@ -19,7 +24,7 @@ export async function GET(
     }
 
     const patient = await prisma.patient.findUnique({
-      where: { id: params.id },
+      where: { id }, // ✅ Use destructured id
       include: {
         createdBy: {
           select: {
@@ -54,11 +59,15 @@ export async function GET(
   }
 }
 
+// ✅ UPDATED FOR NEXT.JS 15: params is now a Promise
 export async function PUT(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // ✅ UPDATED: await params to get the actual values
+    const { id } = await params;
+    
     const session = await auth();
 
     if (!session?.user) {
@@ -72,7 +81,7 @@ export async function PUT(
 
     // Get old patient data for audit log
     const oldPatient = await prisma.patient.findUnique({
-      where: { id: params.id },
+      where: { id }, // ✅ Use destructured id
     });
 
     if (!oldPatient) {
@@ -105,7 +114,7 @@ export async function PUT(
     }
 
     const updatedPatient = await prisma.patient.update({
-      where: { id: params.id },
+      where: { id }, // ✅ Use destructured id
       data: updateData,
       include: {
         createdBy: {
@@ -124,7 +133,7 @@ export async function PUT(
         userId: session.user.id,
         action: "PATIENT_UPDATED",
         entityType: "Patient",
-        entityId: params.id,
+        entityId: id, // ✅ Use destructured id
         oldData: oldPatient as any,
         newData: updatedPatient as any,
       },
@@ -140,11 +149,15 @@ export async function PUT(
   }
 }
 
+// ✅ UPDATED FOR NEXT.JS 15: params is now a Promise
 export async function DELETE(
   request: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    // ✅ UPDATED: await params to get the actual values
+    const { id } = await params;
+    
     const session = await auth();
 
     // Permite oricărui utilizator autentificat să șteargă
@@ -156,7 +169,7 @@ export async function DELETE(
     }
 
     const patient = await prisma.patient.findUnique({
-      where: { id: params.id },
+      where: { id }, // ✅ Use destructured id
     });
 
     if (!patient) {
@@ -168,7 +181,7 @@ export async function DELETE(
 
     // Soft delete - just mark as inactive
     await prisma.patient.update({
-      where: { id: params.id },
+      where: { id }, // ✅ Use destructured id
       data: { isActive: false },
     });
 
@@ -178,7 +191,7 @@ export async function DELETE(
         userId: session.user.id,
         action: "PATIENT_DELETED",
         entityType: "Patient",
-        entityId: params.id,
+        entityId: id, // ✅ Use destructured id
         oldData: patient as any,
       },
     });

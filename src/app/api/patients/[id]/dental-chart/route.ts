@@ -2,10 +2,11 @@ import { NextRequest, NextResponse } from 'next/server';
 import prisma from '@/lib/db';
 import { auth } from '@/lib/auth';
 
+// ✅ UPDATED FOR NEXT.JS 15: params is now a Promise
 interface RouteParams {
-  params: {
+  params: Promise<{
     id: string; // Patient ID
-  };
+  }>;
 }
 
 // Tooth status types
@@ -31,6 +32,9 @@ interface DentalChartData {
  */
 export async function GET(req: NextRequest, { params }: RouteParams) {
   try {
+    // ✅ UPDATED: await params to get the actual values
+    const { id } = await params;
+    
     const session = await auth();
     
     if (!session?.user) {
@@ -42,7 +46,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
 
     // Check if patient exists
     const patient = await prisma.patient.findUnique({
-      where: { id: params.id },
+      where: { id }, // ✅ Use destructured id
       select: { 
         id: true,
         firstName: true,
@@ -72,7 +76,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
         if (parsed.dentalChart) {
           dentalChart = parsed.dentalChart;
         }
-      } catch (e) {
+      } catch {
         // If not JSON or no dentalChart, use default
       }
     }
@@ -90,7 +94,7 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
     }
 
     return NextResponse.json({
-      patientId: params.id,
+      patientId: id, // ✅ Use destructured id
       patientName: `${patient.firstName} ${patient.lastName}`,
       dentalChart
     });
@@ -109,6 +113,9 @@ export async function GET(req: NextRequest, { params }: RouteParams) {
  */
 export async function PUT(req: NextRequest, { params }: RouteParams) {
   try {
+    // ✅ UPDATED: await params to get the actual values
+    const { id } = await params;
+    
     const session = await auth();
     
     if (!session?.user?.id) {
@@ -131,7 +138,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
     // Check if patient exists
     const patient = await prisma.patient.findUnique({
-      where: { id: params.id },
+      where: { id }, // ✅ Use destructured id
       select: { 
         id: true,
         medicalHistory: true
@@ -150,7 +157,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
     if (patient.medicalHistory) {
       try {
         medicalHistory = JSON.parse(patient.medicalHistory);
-      } catch (e) {
+      } catch {
         medicalHistory = { text: patient.medicalHistory };
       }
     }
@@ -166,7 +173,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
 
     // Save updated medical history
     await prisma.patient.update({
-      where: { id: params.id },
+      where: { id }, // ✅ Use destructured id
       data: {
         medicalHistory: JSON.stringify(medicalHistory)
       }
@@ -180,7 +187,7 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
         userName: session.user.name!,
         action: 'UPDATE_DENTAL_CHART',
         entityType: 'Patient',
-        entityId: params.id,
+        entityId: id, // ✅ Use destructured id
         newData: {
           teeth: teeth.filter((t: ToothData) => t.status !== 'healthy'),
           generalNotes
@@ -208,6 +215,9 @@ export async function PUT(req: NextRequest, { params }: RouteParams) {
  */
 export async function PATCH(req: NextRequest, { params }: RouteParams) {
   try {
+    // ✅ UPDATED: await params to get the actual values
+    const { id } = await params;
+    
     const session = await auth();
     
     if (!session?.user?.id) {
@@ -230,7 +240,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     // Get patient's current dental chart
     const patient = await prisma.patient.findUnique({
-      where: { id: params.id },
+      where: { id }, // ✅ Use destructured id
       select: { 
         id: true,
         medicalHistory: true
@@ -249,7 +259,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
     if (patient.medicalHistory) {
       try {
         medicalHistory = JSON.parse(patient.medicalHistory);
-      } catch (e) {
+      } catch {
         medicalHistory = { text: patient.medicalHistory };
       }
     }
@@ -298,7 +308,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
 
     // Save updated medical history
     await prisma.patient.update({
-      where: { id: params.id },
+      where: { id }, // ✅ Use destructured id
       data: {
         medicalHistory: JSON.stringify(medicalHistory)
       }
@@ -312,7 +322,7 @@ export async function PATCH(req: NextRequest, { params }: RouteParams) {
         userName: session.user.name!,
         action: 'UPDATE_TOOTH_STATUS',
         entityType: 'Patient',
-        entityId: params.id,
+        entityId: id, // ✅ Use destructured id
         newData: {
           toothNumber,
           status,
