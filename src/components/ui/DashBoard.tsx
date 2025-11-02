@@ -86,7 +86,7 @@ export const dashboardLinks: IAppPops[] = [
       {
         id: 32,
         name: "UserPage",
-        href: "/dashboard3/settings/UserPage",
+        href: "/dashboard3/User_Management/UserPage",
         icon: User2 ,
       },
        
