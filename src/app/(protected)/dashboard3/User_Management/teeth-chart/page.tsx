@@ -17,19 +17,14 @@ import {
   X,
   Info,
   Stethoscope,
-  ClipboardList,
   Euro,
   Eye,
   Grid3x3,
-  UserPlus,
-  Phone,
-  Mail,
-  MapPin,
-  CreditCard,
   Heart
 } from 'lucide-react';
 import SimplifiedToothChart from '@/components/treatments/simplified-tooth-chart';
 import type { ProcedureItem, ProcedureCategory } from '@/config/procedures';
+
 // Types
 export type ToothSurface = 'mesial' | 'distal' | 'occlusal' | 'buccal' | 'lingual' | 'incisal';
 export type ToothStatus = 'healthy' | 'treated' | 'missing' | 'cavity' | 'crown' | 'implant' | 'bridge';
@@ -54,23 +49,15 @@ interface TreatmentFormData {
   discount: number;
 }
 
-interface PatientFormData {
+interface PatientInfo {
+  id: string;
   firstName: string;
   lastName: string;
   email: string;
   phone: string;
   dateOfBirth: string;
   gender: 'MALE' | 'FEMALE' | 'OTHER';
-  address?: string;
-  city?: string;
-  insuranceProvider?: string;
-  insurancePolicyNumber?: string;
   allergies?: string;
-  medications?: string;
-}
-
-interface PatientInfo extends PatientFormData {
-  id: string;
 }
 
 export default function NewTreatmentPage() {
@@ -84,7 +71,6 @@ export default function NewTreatmentPage() {
   const [activeTab, setActiveTab] = useState<'visualization' | 'selection'>('visualization');
   const [showLabels, setShowLabels] = useState(true);
   const [showQuadrants, setShowQuadrants] = useState(true);
-  const [showPatientForm, setShowPatientForm] = useState(!patientIdParam);
   
   const [treatmentData, setTreatmentData] = useState<TreatmentFormData>({
     chiefComplaint: '',
@@ -93,21 +79,6 @@ export default function NewTreatmentPage() {
     notes: '',
     treatmentDate: new Date().toISOString().split('T')[0],
     discount: 0
-  });
-
-  const [patientFormData, setPatientFormData] = useState<PatientFormData>({
-    firstName: '',
-    lastName: '',
-    email: '',
-    phone: '',
-    dateOfBirth: '',
-    gender: 'MALE',
-    address: '',
-    city: '',
-    insuranceProvider: '',
-    insurancePolicyNumber: '',
-    allergies: '',
-    medications: ''
   });
   
   // Tooth status data
@@ -143,53 +114,10 @@ export default function NewTreatmentPage() {
       if (response.ok) {
         const data = await response.json();
         setPatientInfo(data);
-        setShowPatientForm(false);
       }
     } catch (error) {
       console.error('Error loading patient:', error);
       setAlert({ type: 'error', message: 'Eroare la încărcarea datelor pacientului' });
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  // Save new patient
-  const handleSavePatient = async () => {
-    // Validate patient form
-    if (!patientFormData.firstName || !patientFormData.lastName) {
-      setAlert({ type: 'error', message: 'Completează numele și prenumele pacientului' });
-      return;
-    }
-    if (!patientFormData.phone) {
-      setAlert({ type: 'error', message: 'Completează numărul de telefon' });
-      return;
-    }
-    if (!patientFormData.dateOfBirth) {
-      setAlert({ type: 'error', message: 'Completează data nașterii' });
-      return;
-    }
-
-    setIsLoading(true);
-    try {
-      const response = await fetch('/api/patients', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          ...patientFormData,
-          allergies: patientFormData.allergies ? patientFormData.allergies.split(',').map(a => a.trim()) : [],
-          medications: patientFormData.medications ? patientFormData.medications.split(',').map(m => m.trim()) : []
-        })
-      });
-
-      if (!response.ok) throw new Error('Failed to create patient');
-      
-      const patient = await response.json();
-      setPatientInfo(patient);
-      setShowPatientForm(false);
-      setAlert({ type: 'success', message: 'Pacient înregistrat cu succes!' });
-    } catch (error) {
-      console.error('Error saving patient:', error);
-      setAlert({ type: 'error', message: 'Eroare la salvarea pacientului' });
     } finally {
       setIsLoading(false);
     }
@@ -260,7 +188,7 @@ export default function NewTreatmentPage() {
   // Validation
   const validateForm = () => {
     if (!patientInfo) {
-      setAlert({ type: 'error', message: 'Înregistrează mai întâi pacientul' });
+      setAlert({ type: 'error', message: 'Pacient necesar - adaugă ?patientId= în URL' });
       return false;
     }
     if (!treatmentData.chiefComplaint.trim()) {
@@ -362,6 +290,7 @@ export default function NewTreatmentPage() {
     const mins = minutes % 60;
     return hours > 0 ? `${hours}h ${mins}min` : `${mins} min`;
   };
+  
   // Get selected teeth numbers for visualization
   const selectedTeethNumbers = selectedTeeth.map(t => t.number);
 
@@ -386,7 +315,7 @@ export default function NewTreatmentPage() {
               Tratament Nou
             </h1>
             <p className="text-gray-600 dark:text-gray-400 mt-1">
-              Înregistrează pacient și creează plan de tratament
+              Creează plan de tratament pentru pacient
             </p>
           </div>
         </div>
@@ -435,135 +364,8 @@ export default function NewTreatmentPage() {
         </div>
       )}
 
-      {/* Patient Registration Form or Info */}
-      {showPatientForm ? (
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <UserPlus className="w-5 h-5 text-blue-600" />
-            Înregistrare Pacient Nou
-          </h3>
-          
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Nume *
-              </label>
-              <input
-                type="text"
-                value={patientFormData.lastName}
-                onChange={(e) => setPatientFormData({...patientFormData, lastName: e.target.value})}
-                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
-                placeholder="ex: Popescu"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Prenume *
-              </label>
-              <input
-                type="text"
-                value={patientFormData.firstName}
-                onChange={(e) => setPatientFormData({...patientFormData, firstName: e.target.value})}
-                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
-                placeholder="ex: Ion"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Telefon *
-              </label>
-              <div className="relative">
-                <Phone className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="tel"
-                  value={patientFormData.phone}
-                  onChange={(e) => setPatientFormData({...patientFormData, phone: e.target.value})}
-                  className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="07XX XXX XXX"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Email
-              </label>
-              <div className="relative">
-                <Mail className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="email"
-                  value={patientFormData.email}
-                  onChange={(e) => setPatientFormData({...patientFormData, email: e.target.value})}
-                  className="w-full pl-10 pr-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
-                  placeholder="pacient@email.com"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Data nașterii *
-              </label>
-              <input
-                type="date"
-                value={patientFormData.dateOfBirth}
-                onChange={(e) => setPatientFormData({...patientFormData, dateOfBirth: e.target.value})}
-                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Gen *
-              </label>
-              <select
-                value={patientFormData.gender}
-                onChange={(e) => setPatientFormData({...patientFormData, gender: e.target.value as any})}
-                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="MALE">Masculin</option>
-                <option value="FEMALE">Feminin</option>
-                <option value="OTHER">Altul</option>
-              </select>
-            </div>
-
-            <div className="md:col-span-2">
-              <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                Alergii
-              </label>
-              <input
-                type="text"
-                value={patientFormData.allergies}
-                onChange={(e) => setPatientFormData({...patientFormData, allergies: e.target.value})}
-                className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500"
-                placeholder="ex: Penicilină, Latex (separate prin virgulă)"
-              />
-            </div>
-          </div>
-
-          <div className="mt-6 flex justify-end">
-            <button
-              onClick={handleSavePatient}
-              disabled={isLoading}
-              className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 font-medium"
-            >
-              {isLoading ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  Se salvează...
-                </>
-              ) : (
-                <>
-                  <Save className="w-4 h-4" />
-                  Înregistrează Pacient
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      ) : patientInfo && (
+      {/* Patient Info */}
+      {patientInfo && (
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
