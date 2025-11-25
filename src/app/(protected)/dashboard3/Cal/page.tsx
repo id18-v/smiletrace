@@ -43,16 +43,16 @@ export default function CalPage() {
 
   return (
     <div className="space-y-8">
-        <div className="bg-white dark:bg-neutral-950 rounded-xl shadow-sm dark:shadow-lg p-6">
+        <div className="bg-white dark:bg-[#101727] rounded-xl shadow-sm dark:shadow-lg p-6">
         <Cal
           namespace="30min"
           calLink="dulgheru-ion-o4yu8j/smiletrace"
           style={{
             width: "100%",
             height: "800px", // înălțime fixă mai mică
-            border: "none",
-            backgroundColor: "primary",
+            border: "",
           }}
+          className="border-4 "
           // Cast to any to satisfy current type limitations in @calcom/embed-react
           config={calConfig as any}
         />

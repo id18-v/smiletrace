@@ -33,9 +33,7 @@ export function Header({
   name,
   handleLogout 
 }: HeaderProps) {
-      console.log('Header - name prop:', name)
-  console.log('Header - user prop:', user)
-  console.log('Header - user.name:', user?.name)
+      
   
     const userName = name 
   const userRole = user?.role || 'User'
