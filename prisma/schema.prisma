@@ -113,6 +113,7 @@ model Patient {
   appointments             Appointment[]
   createdBy                User          @relation("PatientCreatedBy", fields: [createdById], references: [id])
   treatments               Treatment[]
+  toothStatuses ToothStatus[]
 
   @@map("patients")
 }
@@ -268,6 +269,37 @@ model AuditLog {
 
   @@map("audit_logs")
 }
+// schema.prisma - Adaugă acest model nou
+
+model ToothStatus {
+  id        String   @id @default(cuid())
+  patientId String
+  toothNumber Int    // 1-32
+  status    ToothStatusType @default(HEALTHY)
+  surfaces  String[]  @default([]) // mesial, distal, occlusal, etc.
+  notes     String?
+  lastUpdated DateTime @default(now()) @updatedAt
+  createdAt DateTime @default(now())
+  
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@unique([patientId, toothNumber])
+  @@map("tooth_statuses")
+}
+
+enum ToothStatusType {
+  HEALTHY
+  TREATED
+  MISSING
+  CAVITY
+  CROWN
+  IMPLANT
+  BRIDGE
+  ROOT_CANAL
+  EXTRACTION_NEEDED
+}
+
+
 
 enum UserRole {
   ADMIN
