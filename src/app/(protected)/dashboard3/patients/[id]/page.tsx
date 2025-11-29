@@ -21,6 +21,7 @@ import {
   Loader2,
   User
 } from "lucide-react";
+import PatientDentalChart from "@/components/treatments/ViewDental";
 
 interface PatientSummary {
   patient: any;
@@ -274,6 +275,8 @@ export default function PatientDetailPage() {
               )}
             </div>
           </div>
+
+          <PatientDentalChart patientId={patientId} />
 
           {/* Medical Information */}
           <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6 border border-gray-200 dark:border-gray-700">
