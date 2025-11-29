@@ -39,12 +39,7 @@ export const dashboardLinks: IAppPops[] = [
     href: "/dashboard3/booking",
     icon: BookUser,
   },
-  {
-    id: 1,
-    name: "Booking Calendar",
-    href: "/dashboard3/Cal",
-    icon: BookUser,
-  }, 
+  
    {
     id: 2,
     name: "Create User",

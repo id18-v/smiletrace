@@ -26,6 +26,7 @@ import {
   Search,
   ChevronRight
 } from "lucide-react";
+import AppointmentModal from "@/components/ui/window-calendat";
 
 interface CalcomBooking {
   id: string;
@@ -283,6 +284,7 @@ export default function BookingsPage() {
       syncStatus: calcomBookings.length > 0 ? 'Active' : 'Inactive'
     };
   };
+     const [isModalOpen, setIsModalOpen] = useState(false);
 
   const analytics = getAnalytics();
 
@@ -340,13 +342,30 @@ export default function BookingsPage() {
                 )}
               </button>
             )}
-            <button
+            
+
+            <div>
+      <button
+        onClick={() => setIsModalOpen(true)}
+        className="px-6 h-[60px] py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+      >
+        Creare Programare
+      </button>
+      
+
+
+      <AppointmentModal
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+      />
+    </div>
+    <button
               onClick={() => activeTab === 'calcom' ? fetchCalcomBookings() : fetchDatabaseAppointments()}
               disabled={loading}
               className="px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
             >
               <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              Reîmprospătează
+              
             </button>
           </div>
         </div>
@@ -405,6 +424,15 @@ export default function BookingsPage() {
 
       {/* Tabs */}
       <div className="border-b border-gray-200 dark:border-gray-700">
+       
+       
+      
+       
+       
+       
+       
+       
+       
         <nav className="flex gap-8">
           {[
             { id: 'calcom' as TabType, label: 'Programări Cal.com', icon: Globe, count: calcomBookings.length },
