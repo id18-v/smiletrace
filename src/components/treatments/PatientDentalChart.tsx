@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Loader2, Save, RotateCcw, AlertCircle, CheckCircle, User, Heart, X, Activity } from 'lucide-react';
+import { Loader2, Save, RotateCcw, AlertCircle, CheckCircle, User, Heart, X, Activity, ChevronDown, Search } from 'lucide-react';
 
 // Types
 type ToothStatus = 'HEALTHY' | 'TREATED' | 'MISSING' | 'CAVITY' | 'CROWN' | 'IMPLANT' | 'BRIDGE';
@@ -85,6 +85,8 @@ export default function PatientDentalChart() {
   const [isSaving, setIsSaving] = useState(false);
   const [hasChanges, setHasChanges] = useState(false);
   const [alert, setAlert] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
     loadPatients();
@@ -186,6 +188,18 @@ export default function PatientDentalChart() {
     }
   };
 
+  const filteredPatients = patients.filter(patient => {
+    const fullName = `${patient.firstName} ${patient.lastName}`.toLowerCase();
+    const search = searchTerm.toLowerCase();
+    return fullName.includes(search) || patient.phone.includes(search) || patient.email?.toLowerCase().includes(search);
+  });
+
+  const handleSelectPatient = (patient: Patient) => {
+    setSelectedPatient(patient);
+    setIsDropdownOpen(false);
+    setSearchTerm('');
+  };
+
   const selectedToothData = selectedTooth ? toothData.get(selectedTooth) : undefined;
 
   if (isLoadingPatients) {
@@ -245,186 +259,213 @@ export default function PatientDentalChart() {
         </div>
       )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
-        {/* Patient List */}
-        <div className="lg:col-span-1">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4">
-            <h2 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-              Pacienți ({patients.length})
-            </h2>
-            {patients.length === 0 ? (
-              <div className="text-center py-8">
-                <p className="text-sm text-gray-500 dark:text-gray-400">Nu există pacienți</p>
-              </div>
-            ) : (
-              <div className="space-y-2 max-h-[600px] overflow-y-auto">
-                {patients.map(patient => (
-                  <button
-                    key={patient.id}
-                    onClick={() => setSelectedPatient(patient)}
-                    className={`w-full text-left p-3 rounded-lg transition-colors ${
-                      selectedPatient?.id === patient.id
-                        ? 'bg-blue-100 dark:bg-blue-900/30 border-2 border-blue-500 dark:border-blue-400'
-                        : 'bg-gray-50 dark:bg-gray-700 hover:bg-gray-100 dark:hover:bg-gray-600 border-2 border-transparent'
-                    }`}
-                  >
-                    <div className="font-medium text-gray-900 dark:text-white">
-                      {patient.firstName} {patient.lastName}
-                    </div>
-                    <div className="text-sm text-gray-600 dark:text-gray-400">{patient.phone}</div>
-                  </button>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
+      {/* Patient Selector Dropdown */}
+      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Selectează Pacient</h3>
+        
+        <div className="relative">
+          <button
+            onClick={() => setIsDropdownOpen(!isDropdownOpen)}
+            className="w-full md:w-96 px-4 py-3 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg flex items-center justify-between hover:bg-gray-100 dark:hover:bg-gray-600 transition-colors"
+          >
+            <div className="flex items-center gap-3">
+              <User className="w-5 h-5 text-gray-400 dark:text-gray-500" />
+              <span className="text-gray-900 dark:text-white">
+                {selectedPatient 
+                  ? `${selectedPatient.firstName} ${selectedPatient.lastName}`
+                  : 'Selectează un pacient...'}
+              </span>
+            </div>
+            <ChevronDown className={`w-5 h-5 text-gray-400 transition-transform ${isDropdownOpen ? 'rotate-180' : ''}`} />
+          </button>
 
-        {/* Main Content */}
-        <div className="lg:col-span-3 space-y-6">
-          {selectedPatient ? (
-            <>
-              {/* Patient Info */}
-              <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-4">
-                    <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg">
-                      <User className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-                    </div>
-                    <div>
-                      <h2 className="font-semibold text-xl text-gray-900 dark:text-white">
-                        {selectedPatient.firstName} {selectedPatient.lastName}
-                      </h2>
-                      <p className="text-sm text-gray-600 dark:text-gray-400">
-                        {selectedPatient.email} • {selectedPatient.phone}
-                      </p>
-                    </div>
-                  </div>
-                  <div className="flex gap-2">
-                    <button
-                      onClick={resetChart}
-                      className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg flex items-center gap-2 transition-colors"
-                    >
-                      <RotateCcw className="w-4 h-4" />
-                      Reset
-                    </button>
-                    <button
-                      onClick={saveChanges}
-                      disabled={!hasChanges || isSaving}
-                      className="px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
-                    >
-                      {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-                      {isSaving ? 'Se salvează...' : 'Salvează'}
-                    </button>
-                  </div>
+          {isDropdownOpen && (
+            <div className="absolute z-10 mt-2 w-full md:w-96 bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg shadow-lg">
+              {/* Search */}
+              <div className="p-3 border-b border-gray-200 dark:border-gray-700">
+                <div className="relative">
+                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchTerm}
+                    onChange={(e) => setSearchTerm(e.target.value)}
+                    placeholder="Caută pacient..."
+                    className="w-full pl-10 pr-3 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-white"
+                  />
                 </div>
-                {selectedPatient.allergies && selectedPatient.allergies.length > 0 && (
-                  <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
-                    <p className="text-sm text-red-700 dark:text-red-300 flex items-center gap-2">
-                      <Heart className="w-4 h-4" />
-                      Alergii: {selectedPatient.allergies.join(', ')}
-                    </p>
+              </div>
+
+              {/* Patient List */}
+              <div className="max-h-64 overflow-y-auto">
+                {filteredPatients.length === 0 ? (
+                  <div className="p-4 text-center text-sm text-gray-500 dark:text-gray-400">
+                    Nu s-au găsit pacienți
                   </div>
+                ) : (
+                  filteredPatients.map(patient => (
+                    <button
+                      key={patient.id}
+                      onClick={() => handleSelectPatient(patient)}
+                      className="w-full px-4 py-3 text-left hover:bg-gray-50 dark:hover:bg-gray-700 transition-colors border-b border-gray-100 dark:border-gray-700 last:border-0"
+                    >
+                      <div className="font-medium text-gray-900 dark:text-white">
+                        {patient.firstName} {patient.lastName}
+                      </div>
+                      <div className="text-sm text-gray-600 dark:text-gray-400 mt-1">
+                        {patient.phone} {patient.email && `• ${patient.email}`}
+                      </div>
+                    </button>
+                  ))
                 )}
               </div>
-
-              {/* Tooth Chart */}
-              {isLoading ? (
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 flex justify-center">
-                  <Loader2 className="w-8 h-8 animate-spin text-blue-600 dark:text-blue-400" />
-                </div>
-              ) : (
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Hartă Dentară</h3>
-                  
-                  <div className="mb-8">
-                    <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-4">Maxilar Superior</p>
-                    <div className="flex justify-center gap-1 flex-wrap">
-                      {Array.from({ length: 16 }, (_, i) => i + 17).map(num => (
-                        <ToothItem
-                          key={num}
-                          number={num}
-                          data={toothData.get(num)}
-                          isSelected={selectedTooth === num}
-                          onClick={() => setSelectedTooth(num)}
-                        />
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="border-t-2 border-gray-200 dark:border-gray-700 relative my-6">
-                    <span className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 px-4 text-xs text-gray-500 dark:text-gray-400">
-                      Linia mediană
-                    </span>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-center gap-1 flex-wrap">
-                      {Array.from({ length: 16 }, (_, i) => 16 - i).map(num => (
-                        <ToothItem
-                          key={num}
-                          number={num}
-                          data={toothData.get(num)}
-                          isSelected={selectedTooth === num}
-                          onClick={() => setSelectedTooth(num)}
-                        />
-                      ))}
-                    </div>
-                    <p className="text-sm text-gray-600 dark:text-gray-400 text-center mt-4">Maxilar Inferior</p>
-                  </div>
-
-                  <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                    <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                      {Object.entries(STATUS_LABELS).map(([status, label]) => (
-                        <div key={status} className="flex items-center gap-2">
-                          <div className={`w-4 h-4 rounded border-2 ${
-                            status === 'HEALTHY' ? 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600' :
-                            status === 'CAVITY' ? 'bg-red-50 dark:bg-red-900/30 border-red-400 dark:border-red-500' :
-                            status === 'CROWN' ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 dark:border-blue-500' :
-                            status === 'TREATED' ? 'bg-orange-50 dark:bg-orange-900/30 border-orange-400 dark:border-orange-500' :
-                            status === 'IMPLANT' ? 'bg-purple-50 dark:bg-purple-900/30 border-purple-400 dark:border-purple-500' :
-                            status === 'BRIDGE' ? 'bg-green-50 dark:bg-green-900/30 border-green-400 dark:border-green-500' :
-                            'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
-                          }`} />
-                          <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Tooth Editor */}
-              {selectedTooth && (
-                <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-                  <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
-                    Editează Dintele #{selectedTooth}
-                  </h3>
-                  <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-                    {Object.entries(STATUS_LABELS).map(([status, label]) => (
-                      <button
-                        key={status}
-                        onClick={() => updateToothStatus(status as ToothStatus)}
-                        className={`p-3 rounded-lg border-2 transition-all ${
-                          selectedToothData?.status === status
-                            ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/30'
-                            : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-700'
-                        }`}
-                      >
-                        <div className="font-medium text-sm text-gray-900 dark:text-white">{label}</div>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </>
-          ) : (
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
-              <User className="w-12 h-12 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
-              <p className="text-gray-600 dark:text-gray-400">Selectează un pacient pentru a vedea harta dentară</p>
             </div>
           )}
         </div>
       </div>
+
+      {/* Main Content */}
+      {selectedPatient ? (
+        <div className="space-y-6">
+          {/* Patient Info */}
+          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-5">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-4">
+                <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg">
+                  <User className="w-6 h-6 text-blue-600 dark:text-blue-400" />
+                </div>
+                <div>
+                  <h2 className="font-semibold text-xl text-gray-900 dark:text-white">
+                    {selectedPatient.firstName} {selectedPatient.lastName}
+                  </h2>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">
+                    {selectedPatient.email} • {selectedPatient.phone}
+                  </p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={resetChart}
+                  className="px-4 py-2 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 rounded-lg flex items-center gap-2 transition-colors"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  Reset
+                </button>
+                <button
+                  onClick={saveChanges}
+                  disabled={!hasChanges || isSaving}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
+                >
+                  {isSaving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
+                  {isSaving ? 'Se salvează...' : 'Salvează'}
+                </button>
+              </div>
+            </div>
+            {selectedPatient.allergies && selectedPatient.allergies.length > 0 && (
+              <div className="mt-3 p-3 bg-red-50 dark:bg-red-900/20 rounded-lg border border-red-200 dark:border-red-800">
+                <p className="text-sm text-red-700 dark:text-red-300 flex items-center gap-2">
+                  <Heart className="w-4 h-4" />
+                  Alergii: {selectedPatient.allergies.join(', ')}
+                </p>
+              </div>
+            )}
+          </div>
+
+          {/* Tooth Chart */}
+          {isLoading ? (
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 flex justify-center">
+              <Loader2 className="w-8 h-8 animate-spin text-blue-600 dark:text-blue-400" />
+            </div>
+          ) : (
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">Hartă Dentară</h3>
+              
+              <div className="mb-8">
+                <p className="text-sm text-gray-600 dark:text-gray-400 text-center mb-4">Maxilar Superior</p>
+                <div className="flex justify-center gap-1 flex-wrap">
+                  {Array.from({ length: 16 }, (_, i) => i + 17).map(num => (
+                    <ToothItem
+                      key={num}
+                      number={num}
+                      data={toothData.get(num)}
+                      isSelected={selectedTooth === num}
+                      onClick={() => setSelectedTooth(num)}
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="border-t-2 border-gray-200 dark:border-gray-700 relative my-6">
+                <span className="absolute left-1/2 top-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white dark:bg-gray-800 px-4 text-xs text-gray-500 dark:text-gray-400">
+                  Linia mediană
+                </span>
+              </div>
+
+              <div>
+                <div className="flex justify-center gap-1 flex-wrap">
+                  {Array.from({ length: 16 }, (_, i) => 16 - i).map(num => (
+                    <ToothItem
+                      key={num}
+                      number={num}
+                      data={toothData.get(num)}
+                      isSelected={selectedTooth === num}
+                      onClick={() => setSelectedTooth(num)}
+                    />
+                  ))}
+                </div>
+                <p className="text-sm text-gray-600 dark:text-gray-400 text-center mt-4">Maxilar Inferior</p>
+              </div>
+
+              <div className="mt-6 p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {Object.entries(STATUS_LABELS).map(([status, label]) => (
+                    <div key={status} className="flex items-center gap-2">
+                      <div className={`w-4 h-4 rounded border-2 ${
+                        status === 'HEALTHY' ? 'bg-white dark:bg-gray-700 border-gray-300 dark:border-gray-600' :
+                        status === 'CAVITY' ? 'bg-red-50 dark:bg-red-900/30 border-red-400 dark:border-red-500' :
+                        status === 'CROWN' ? 'bg-blue-50 dark:bg-blue-900/30 border-blue-400 dark:border-blue-500' :
+                        status === 'TREATED' ? 'bg-orange-50 dark:bg-orange-900/30 border-orange-400 dark:border-orange-500' :
+                        status === 'IMPLANT' ? 'bg-purple-50 dark:bg-purple-900/30 border-purple-400 dark:border-purple-500' :
+                        status === 'BRIDGE' ? 'bg-green-50 dark:bg-green-900/30 border-green-400 dark:border-green-500' :
+                        'bg-gray-50 dark:bg-gray-800 border-gray-200 dark:border-gray-700'
+                      }`} />
+                      <span className="text-sm text-gray-700 dark:text-gray-300">{label}</span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Tooth Editor */}
+          {selectedTooth && (
+            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+                Editează Dintele #{selectedTooth}
+              </h3>
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                {Object.entries(STATUS_LABELS).map(([status, label]) => (
+                  <button
+                    key={status}
+                    onClick={() => updateToothStatus(status as ToothStatus)}
+                    className={`p-3 rounded-lg border-2 transition-all ${
+                      selectedToothData?.status === status
+                        ? 'border-blue-500 dark:border-blue-400 bg-blue-50 dark:bg-blue-900/30'
+                        : 'border-gray-200 dark:border-gray-700 hover:border-gray-300 dark:hover:border-gray-600 bg-white dark:bg-gray-700'
+                    }`}
+                  >
+                    <div className="font-medium text-sm text-gray-900 dark:text-white">{label}</div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-12 text-center">
+          <User className="w-12 h-12 text-gray-400 dark:text-gray-600 mx-auto mb-4" />
+          <p className="text-gray-600 dark:text-gray-400">Selectează un pacient din dropdown pentru a vedea harta dentară</p>
+        </div>
+      )}
     </div>
   );
 }
