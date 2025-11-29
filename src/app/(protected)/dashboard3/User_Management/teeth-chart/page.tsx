@@ -306,39 +306,7 @@ export default function NewTreatmentPage() {
   return (
     <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg">
-            <FileText className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Tratament Nou
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              Creează plan de tratament pentru pacient
-            </p>
-          </div>
-        </div>
-
-        <button
-          onClick={handleSaveTreatment}
-          disabled={isSaving || !patientInfo}
-          className="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50 font-medium"
-        >
-          {isSaving ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Se salvează...
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4" />
-              Salvează Tratament
-            </>
-          )}
-        </button>
-      </div>
+      \
 
       {/* Alert */}
       {alert && (
@@ -403,54 +371,8 @@ export default function NewTreatmentPage() {
         </div>
       )}
 
-      {/* Treatment Information Form */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
-        <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-          <Stethoscope className="w-5 h-5 text-blue-600" />
-          Informații Medicale
-        </h3>
-        
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Simptomatologie *
-            </label>
-            <input
-              type="text"
-              value={treatmentData.chiefComplaint}
-              onChange={(e) => setTreatmentData({...treatmentData, chiefComplaint: e.target.value})}
-              className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
-              placeholder="ex: Durere acută la masticație"
-            />
-          </div>
-
-          <div>
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Diagnostic *
-            </label>
-            <input
-              type="text"
-              value={treatmentData.diagnosis}
-              onChange={(e) => setTreatmentData({...treatmentData, diagnosis: e.target.value})}
-              className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
-              placeholder="ex: Carie profundă dinte 36"
-            />
-          </div>
-
-          <div className="md:col-span-2">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-              Plan de Tratament
-            </label>
-            <textarea
-              value={treatmentData.treatmentPlan}
-              onChange={(e) => setTreatmentData({...treatmentData, treatmentPlan: e.target.value})}
-              className="w-full px-4 py-2 bg-gray-50 dark:bg-gray-700 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 text-gray-900 dark:text-white"
-              rows={3}
-              placeholder="Descriere detaliată a tratamentului propus..."
-            />
-          </div>
-        </div>
-      </div>
+      
+      
 
       {/* Tooth Selection Panel */}
       <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
@@ -488,46 +410,28 @@ export default function NewTreatmentPage() {
         </div>
 
         {/* Tab Content - Both charts synchronized but without upper/lower auto-selection */}
+     
+
         {activeTab === 'visualization' ? (
           <div>
-            {/* Controls */}
-            <div className="flex items-center gap-4 mb-4">
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showLabels}
-                  onChange={(e) => setShowLabels(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">Afișează Numere</span>
-              </label>
-              <label className="flex items-center gap-2 cursor-pointer">
-                <input
-                  type="checkbox"
-                  checked={showQuadrants}
-                  onChange={(e) => setShowQuadrants(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 border-gray-300 rounded"
-                />
-                <span className="text-sm text-gray-700 dark:text-gray-300">Afișează Cadrane</span>
-              </label>
-            </div>
-   
-        <PatientDentalChart />;
-
+         
             
-            {/* Chart 1 - ToothChartImages */}
-            <ToothChartImages
-              selectedTeeth={selectedTeethNumbers}
-              toothData={toothData}
+            
+   
+       
+                <PatientDentalChart />
+           
+              
+          {/*  <ToothChartImages selectedTeeth={selectedTeethNumbers} toothData={toothData}
               onToothSelect={handleChart1Select}
               onMultiSelect={handleChart1MultiSelect}
               showLabels={showLabels}
               showQuadrants={showQuadrants}
               readOnly={false}
-            />
+            />    */}
           </div>
         ) : (
-          /* Chart 2 - SimplifiedToothChart */
+        
           <SimplifiedToothChart
             selectedTeeth={selectedTeeth}
             toothData={toothData}
@@ -537,8 +441,8 @@ export default function NewTreatmentPage() {
             readOnly={false}
           />
         )}
-
-        {/* Selected teeth summary */}
+             
+        
         {selectedTeeth.length > 0 && (
           <div className="mt-4 p-3 bg-orange-50 dark:bg-orange-900/20 rounded-lg border border-orange-200 dark:border-orange-800">
             <p className="text-sm font-semibold text-orange-900 dark:text-orange-200 mb-2">
@@ -563,54 +467,12 @@ export default function NewTreatmentPage() {
         )}
       </div>
 
-      {/* Procedure Selection */}
-      <ProcedureSelector
-        selectedProcedures={selectedProceduresForSelector}
-        onProcedureAdd={handleProcedureAdd}
-        onProcedureRemove={handleProcedureRemove}
-        useInsurancePricing={useInsurancePricing}
-        showQuickSelect={true}
-      />
+   
+      
 
-      {/* Cost Summary */}
-      {(selectedTeeth.length > 0 && selectedProcedures.length > 0) && (
-        <div className="bg-gradient-to-r from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 rounded-xl p-6 border border-blue-200 dark:border-blue-800">
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white mb-4 flex items-center gap-2">
-            <Euro className="w-5 h-5 text-blue-600" />
-            Sumar Tratament
-          </h3>
+     
+    
 
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
-              <p className="text-sm text-gray-600 dark:text-gray-400">Dinți Afectați</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                {selectedTeeth.length}
-              </p>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
-              <p className="text-sm text-gray-600 dark:text-gray-400">Proceduri</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                {selectedProcedures.length}
-              </p>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
-              <p className="text-sm text-gray-600 dark:text-gray-400">Durată Estimată</p>
-              <p className="text-2xl font-bold text-gray-900 dark:text-white mt-1">
-                {formatDuration(duration)}
-              </p>
-            </div>
-
-            <div className="bg-white dark:bg-gray-800 rounded-lg p-4">
-              <p className="text-sm text-gray-600 dark:text-gray-400">Cost Total</p>
-              <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-1">
-                {total} RON
-              </p>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
