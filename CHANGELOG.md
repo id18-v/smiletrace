@@ -2,17 +2,54 @@
 
 All notable changes to the SmileTrace - Dental Management Platform will be documented in this file.
 
-
-
-## [Unreleased] - 02-11-2025
+## [0.5.0] - 02-11-2025 to 29-11-2025
 
 ### Added
-- **User Page**: Modifications and improvements to the user page ([@id18-v](https://github.com/id18-v) in [#22](https://github.com/id18-v/smiletrace/pull/22))
-- **Email Settings**: New settings page for email configuration in the dental management system
+
+#### 🦷 Dental Chart System
+- **Initial Dental Chart Implementation**: Added new Prisma tables for dental chart functionality ([@id18-v](https://github.com/id18-v) in [#31](https://github.com/id18-v/smiletrace/pull/31))
+  - Database schema for storing tooth-level information per user
+  - User-to-dental-chart relationships
+  - Tooth numbering system (1-32 Universal System)
+
+- **Custom Dental Chart Enhancement**: Made dental chart more customizable ([@id18-v](https://github.com/id18-v) in [#32](https://github.com/id18-v/smiletrace/pull/32))
+  - Feature to choose between different users
+  - Ability to make changes to individual teeth
+  - Custom status assignment per tooth
+  - Notes field for detailed information
+
+- **Dental Chart UI with Theme Support**: Complete UI for dental chart visualization ([@id18-v](https://github.com/id18-v) in [#33](https://github.com/id18-v/smiletrace/pull/33))
+  - Color-coded tooth status indicators
+  - Theme toggle support (light/dark mode)
+  - Interactive tooth selection interface
+  - Visual representation of all 32 teeth
+
+- **Improved User Selection Menu**: Better method for finding users ([@id18-v](https://github.com/id18-v) in [#34](https://github.com/id18-v/smiletrace/pull/34))
+  - Redesigned user selection interface
+  - Enhanced search/filter functionality
+  - Faster patient lookup
+
+- **Dental Chart Page Enhancement**: Improved dental chart page for better usage ([@id18-v](https://github.com/id18-v) in [#35](https://github.com/id18-v/smiletrace/pull/35))
+  - Refactored page layout
+  - Enhanced navigation and workflow
+  - Optimized page performance
+
+- **View Page Integration**: Added dental chart to person view page ([@id18-v](https://github.com/id18-v) in [#36](https://github.com/id18-v/smiletrace/pull/36))
+  - Inline dental chart display
+  - Quick access to tooth history
+  - Visual tooth status overview
+
+- **Calendar Booking Integration**: Added calendar for booking in appointments page ([@id18-v](https://github.com/id18-v) in [#37](https://github.com/id18-v/smiletrace/pull/37))
+  - Interactive calendar interface
+  - Appointment booking workflow
+  - Integration with patient dental history
+
+#### ⚙️ Settings & User Management
+- **User Page Modifications**: Improvements to the user page ([@id18-v](https://github.com/id18-v) in [#22](https://github.com/id18-v/smiletrace/pull/22))
+- **Email Settings**: New settings page for email configuration ([@id18-v](https://github.com/id18-v) in [#21](https://github.com/id18-v/smiletrace/pull/21))
 
 ### Changed
-- **Clinic Settings**: Simplified clinic settings page for better user experience
-- User interface improvements for settings management
+- **Clinic Settings Simplification**: Simplified clinic settings page for better user experience ([@id18-v](https://github.com/id18-v) in [#20](https://github.com/id18-v/smiletrace/pull/20))
 
 ---
 
@@ -21,109 +58,96 @@ All notable changes to the SmileTrace - Dental Management Platform will be docum
 ### Added
 
 #### 💳 Digital Receipts & Payment Tracking
-- **Receipt Generation System**: Complete digital receipt generation system
+- **Receipt Generation System**: Complete digital receipt generation system ([@id18-v](https://github.com/id18-v))
   - Automatic unique receipt number generation
   - Automatic totals calculation with taxes and discounts
   - Professional template with clinic header and logo
   - Detailed itemization of procedures and costs
-  - ([@id18-v](https://github.com/id18-v))
 
-- **QR Code Integration**: QR code integration in receipts
+- **QR Code Integration**: QR code integration in receipts ([@id18-v](https://github.com/id18-v))
   - QR code generation with appointment booking links
   - QR codes for receipt verification
   - Patient portal links
   - Download QR as image
   - Print-friendly formatting
-  - ([@id18-v](https://github.com/id18-v))
 
-- **PDF Generation**: PDF generation system for receipts
+- **PDF Generation**: PDF generation system for receipts ([@id18-v](https://github.com/id18-v))
   - Export receipts to professional PDF format
   - Include QR code in PDF
   - Print optimization
   - Batch generation
   - Send PDF as email attachment
-  - ([@id18-v](https://github.com/id18-v))
 
-- **Payment Tracking Dashboard**: Dashboard for payment tracking
+- **Payment Tracking Dashboard**: Dashboard for payment tracking ([@id18-v](https://github.com/id18-v))
   - Outstanding balances view
   - Complete payment history
   - Daily collection reports
   - Payment recording for receipts
-  - ([@id18-v](https://github.com/id18-v))
 
 #### 👥 Enhanced Patient Management
-- **Advanced Patient Service**: Extended services for patient management
+- **Advanced Patient Service**: Extended services for patient management ([@id18-v](https://github.com/id18-v))
   - Complete patient registration with multi-step form
   - Detailed medical history
   - Medical insurance information
   - Emergency contacts
   - Duplicate record merging
-  - ([@id18-v](https://github.com/id18-v))
 
-- **Patient Search & Filtering**: Advanced patient search system
+- **Patient Search & Filtering**: Advanced patient search system ([@id18-v](https://github.com/id18-v))
   - Real-time search
   - Advanced filters (age, last visit, etc.)
   - Search by name/phone/email
   - Search suggestions
   - Quick access to recent patients
-  - ([@id18-v](https://github.com/id18-v))
 
-- **Patient Profile Page**: Complete patient profile page
+- **Patient Profile Page**: Complete patient profile page ([@id18-v](https://github.com/id18-v))
   - Patient information overview
   - Medical history timeline
   - Treatment history
   - Upcoming appointments
   - Summary card with quick edit
-  - ([@id18-v](https://github.com/id18-v))
 
-- **Data Import/Export**: Patient data management
+- **Data Import/Export**: Patient data management ([@id18-v](https://github.com/id18-v))
   - CSV patient import
   - Patient data export
   - Patient records backup
   - Data validation on import
   - Bulk operations
-  - ([@id18-v](https://github.com/id18-v))
 
 #### ⚙️ Clinic Configuration & User Management
-- **Clinic Settings System**: Complete clinic configuration system
+- **Clinic Settings System**: Complete clinic configuration system ([@id18-v](https://github.com/id18-v))
   - Clinic information form
   - Address and contact details
   - Tax and license numbers
   - Clinic logo upload
   - Configurable working hours
   - Holiday calendar
-  - ([@id18-v](https://github.com/id18-v))
 
-- **User Management**: User administration system
+- **User Management**: User administration system ([@id18-v](https://github.com/id18-v))
   - System users list
   - Add/edit/deactivate users
   - Role and permission assignment
   - Permission matrix
   - Password reset
-  - ([@id18-v](https://github.com/id18-v))
 
-- **Email Template Editor**: Email template editor
+- **Email Template Editor**: Email template editor ([@id18-v](https://github.com/id18-v))
   - Appointment confirmation template
   - Reminder email template
   - Receipt template
   - Variables/placeholders system
   - Email functionality testing
-  - ([@id18-v](https://github.com/id18-v))
 
-- **Notification System**: Notification configuration system
+- **Notification System**: Notification configuration system ([@id18-v](https://github.com/id18-v))
   - Reminder timing configuration
   - Email/SMS toggle
   - Notification preferences
   - Special hours settings
   - Break time configuration
-  - ([@id18-v](https://github.com/id18-v))
 
-- **System Utilities**: System utilities and maintenance
+- **System Utilities**: System utilities and maintenance ([@id18-v](https://github.com/id18-v))
   - Database backup interface
   - Audit log viewer
   - System health check
   - Data cleanup tools
-  - ([@id18-v](https://github.com/id18-v))
 
 ### Improved
 - **Performance**: Optimizations for search and data display
@@ -192,59 +216,52 @@ src/
 
 ---
 
-## [1.0.0] - 28.10,2025
+## [1.0.0] - 28-10-2025
 
 ### 🚀 Production Deployment
-- **Production Launch**: SmileTrace application deployed to production
+- **Production Launch**: SmileTrace application deployed to production ([@id18-v](https://github.com/id18-v) in [#19](https://github.com/id18-v/smiletrace/pull/19))
   - Cloud platform deployment
   - Production environment variables configuration
   - Cloud PostgreSQL database setup
-  - ([@id18-v](https://github.com/id18-v) in [#19](https://github.com/id18-v/smiletrace/pull/19))
 
 ### Fixed
-- **Next.js 15 Compatibility**: Update for Next.js 15 compatibility
+- **Next.js 15 Compatibility**: Update for Next.js 15 compatibility ([@id18-v](https://github.com/id18-v) in [eb52ff8](https://github.com/id18-v/smiletrace/commit/eb52ff8))
   - Implemented `async params` for dynamic routes
   - Added `Suspense boundaries` for async component loading
-  - ([@id18-v](https://github.com/id18-v) in [eb52ff8](https://github.com/id18-v/smiletrace/commit/eb52ff8))
 - **Build Process**: Added `prisma generate` to build and postinstall process for more stable deployment ([@id18-v](https://github.com/id18-v) in [29f7f47](https://github.com/id18-v/smiletrace/commit/29f7f47))
 
 ---
 
-## [0.2.0] - 02.10.2025
+## [0.2.0] - 02-10-2025
 
 ### Added
-- **Patient Management**: Complete patient management system
+- **Patient Management**: Complete patient management system ([@id18-v](https://github.com/id18-v) in [#17](https://github.com/id18-v/smiletrace/pull/17))
   - Patient creation and editing pages
   - Detailed patient information form
-  - ([@id18-v](https://github.com/id18-v) in [#17](https://github.com/id18-v/smiletrace/pull/17))
 
-- **Cal.com Integration**: Integration with Cal.com appointment system
+- **Cal.com Integration**: Integration with Cal.com appointment system ([@id18-v](https://github.com/id18-v) in [#16](https://github.com/id18-v/smiletrace/pull/16))
   - Automatic database synchronization with Cal.com
   - Real-time appointment management
-  - ([@id18-v](https://github.com/id18-v) in [#16](https://github.com/id18-v/smiletrace/pull/16))
 
-- **Appointment System**: Complete appointment system
+- **Appointment System**: Complete appointment system ([@id18-v](https://github.com/id18-v) in [#15](https://github.com/id18-v/smiletrace/pull/15))
   - Create and manage appointments
   - Intuitive appointment interface
   - Complete appointment management functionality
-  - ([@id18-v](https://github.com/id18-v) in [#15](https://github.com/id18-v/smiletrace/pull/15))
 
 ### Changed
-- **Header Layout**: Modified header layout to display logged-in user name
+- **Header Layout**: Modified header layout to display logged-in user name ([@CristianProdius](https://github.com/CristianProdius) in [#14](https://github.com/id18-v/smiletrace/pull/14))
   - Improved user experience
   - More intuitive design for active account identification
-  - ([@CristianProdius](https://github.com/CristianProdius) in [#14](https://github.com/id18-v/smiletrace/pull/14))
 
 ---
 
-## [0.1.0] - 04.10.2025
+## [0.1.0] - 04-10-2025
 
 ### Added
-- **Authentication System**: Complete authentication system
+- **Authentication System**: Complete authentication system ([@CristianProdius](https://github.com/CristianProdius) in [398ffbc](https://github.com/id18-v/smiletrace/commit/398ffbc))
   - Login page with validation
   - Registration page for new users
   - NextAuth.js integration for secure sessions
-  - ([@CristianProdius](https://github.com/CristianProdius) in [398ffbc](https://github.com/id18-v/smiletrace/commit/398ffbc))
 
 - **Main Dashboard**: Platform main page
   - Dashboard with general statistics
@@ -258,12 +275,11 @@ src/
 
 ### Improved
 - **UX Improvements**: Added meaningful placeholders in forms
-- **Developer Experience**: Completed Copilot suggestions for improved productivity
-  - ([@id18-v](https://github.com/id18-v) in [d64c397](https://github.com/id18-v/smiletrace/commit/d64c397))
+- **Developer Experience**: Completed Copilot suggestions for improved productivity ([@id18-v](https://github.com/id18-v) in [d64c397](https://github.com/id18-v/smiletrace/commit/d64c397))
 
 ---
 
-## [0.0.1] -11.09.2025
+## [0.0.1] - 11-09-2025
 
 ### Added
 - **Initial Project Setup**: Initial project configuration
