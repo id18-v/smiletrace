@@ -24,6 +24,7 @@ import {
 } from 'lucide-react';
 import SimplifiedToothChart from '@/components/treatments/simplified-tooth-chart';
 import type { ProcedureItem, ProcedureCategory } from '@/config/procedures';
+import PatientDentalChart from '@/components/treatments/PatientDentalChart';
 
 // Types
 export type ToothSurface = 'mesial' | 'distal' | 'occlusal' | 'buccal' | 'lingual' | 'incisal';
@@ -510,6 +511,9 @@ export default function NewTreatmentPage() {
                 <span className="text-sm text-gray-700 dark:text-gray-300">Afișează Cadrane</span>
               </label>
             </div>
+   
+        <PatientDentalChart />;
+
             
             {/* Chart 1 - ToothChartImages */}
             <ToothChartImages

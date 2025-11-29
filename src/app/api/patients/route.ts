@@ -1,8 +1,7 @@
 // src/app/api/patients/route.ts
-import { NextRequest, NextResponse } from "next/server";
-import { auth } from "@/lib/auth";
-import { PatientService } from "@/services/patient.service";
-import { Gender } from "@prisma/client";
+import { NextRequest, NextResponse } from 'next/server';
+import { auth } from '@/lib/auth';
+import prisma from '@/lib/db';
 
 export async function GET(request: NextRequest) {
   try {
@@ -10,22 +9,66 @@ export async function GET(request: NextRequest) {
 
     if (!session?.user) {
       return NextResponse.json(
-        { error: "Nu ești autentificat" },
+        { error: 'Nu ești autentificat' },
         { status: 401 }
       );
     }
 
-    const searchParams = request.nextUrl.searchParams;
-    const page = parseInt(searchParams.get("page") || "1");
-    const pageSize = parseInt(searchParams.get("pageSize") || "20");
+    // Get query parameters for filtering/pagination
+    const { searchParams } = new URL(request.url);
+    const search = searchParams.get('search');
+    const limit = parseInt(searchParams.get('limit') || '100');
+    const offset = parseInt(searchParams.get('offset') || '0');
 
-    const result = await PatientService.searchPatients({}, page, pageSize);
+    // Build where clause
+    const where: any = {
+      isActive: true
+    };
 
-    return NextResponse.json(result);
-  } catch (error: any) {
-    console.error("Error fetching patients:", error);
+    if (search) {
+      where.OR = [
+        { firstName: { contains: search, mode: 'insensitive' } },
+        { lastName: { contains: search, mode: 'insensitive' } },
+        { email: { contains: search, mode: 'insensitive' } },
+        { phone: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    const patients = await prisma.patient.findMany({
+      where,
+      select: {
+        id: true,
+        firstName: true,
+        lastName: true,
+        email: true,
+        phone: true,
+        allergies: true,
+        dateOfBirth: true,
+        gender: true,
+        lastVisitAt: true,
+        createdAt: true,
+      },
+      orderBy: [
+        { lastName: 'asc' },
+        { firstName: 'asc' }
+      ],
+      take: limit,
+      skip: offset
+    });
+
+    // Get total count for pagination
+    const total = await prisma.patient.count({ where });
+
+    return NextResponse.json({
+      patients,
+      total,
+      limit,
+      offset
+    });
+  } catch (error) {
+    console.error('Error fetching patients:', error);
     return NextResponse.json(
-      { error: error.message || "Eroare la încărcarea pacienților" },
+      { error: 'Failed to fetch patients' },
       { status: 500 }
     );
   }
@@ -37,23 +80,15 @@ export async function POST(request: NextRequest) {
 
     if (!session?.user) {
       return NextResponse.json(
-        { error: "Nu ești autentificat" },
+        { error: 'Nu ești autentificat' },
         { status: 401 }
       );
     }
 
-    let body;
-    try {
-      body = await request.json();
-    } catch (e) {
-      return NextResponse.json(
-        { error: "Date invalide în request" },
-        { status: 400 }
-      );
-    }
+    const body = await request.json();
 
     // Validate required fields
-    const requiredFields = ["firstName", "lastName", "phone", "dateOfBirth", "gender"];
+    const requiredFields = ['firstName', 'lastName', 'phone', 'dateOfBirth', 'gender'];
     for (const field of requiredFields) {
       if (!body[field]) {
         return NextResponse.json(
@@ -63,48 +98,59 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    // Validate gender
-    if (!["MALE", "FEMALE", "OTHER"].includes(body.gender)) {
-      return NextResponse.json(
-        { error: "Gen invalid" },
-        { status: 400 }
-      );
-    }
+    const patient = await prisma.patient.create({
+      data: {
+        firstName: body.firstName,
+        lastName: body.lastName,
+        email: body.email,
+        phone: body.phone,
+        dateOfBirth: new Date(body.dateOfBirth),
+        gender: body.gender,
+        address: body.address,
+        city: body.city,
+        state: body.state,
+        zipCode: body.zipCode,
+        country: body.country || 'Romania',
+        bloodType: body.bloodType,
+        allergies: body.allergies || [],
+        medications: body.medications || [],
+        medicalHistory: body.medicalHistory,
+        insuranceProvider: body.insuranceProvider,
+        insurancePolicyNumber: body.insurancePolicyNumber,
+        insuranceGroupNumber: body.insuranceGroupNumber,
+        emergencyContactName: body.emergencyContactName,
+        emergencyContactPhone: body.emergencyContactPhone,
+        emergencyContactRelation: body.emergencyContactRelation,
+        notes: body.notes,
+        createdById: session.user.id
+      },
+      include: {
+        createdBy: {
+          select: {
+            id: true,
+            name: true,
+            email: true
+          }
+        }
+      }
+    });
 
-    // Create patient data object
-    const patientData = {
-      firstName: body.firstName,
-      lastName: body.lastName,
-      email: body.email || undefined,
-      phone: body.phone,
-      dateOfBirth: new Date(body.dateOfBirth),
-      gender: body.gender as Gender,
-      address: body.address || undefined,
-      city: body.city || undefined,
-      state: body.state || undefined,
-      zipCode: body.zipCode || undefined,
-      country: body.country || "USA",
-      bloodType: body.bloodType || undefined,
-      allergies: body.allergies || [],
-      medications: body.medications || [],
-      medicalHistory: body.medicalHistory || undefined,
-      insuranceProvider: body.insuranceProvider || undefined,
-      insurancePolicyNumber: body.insurancePolicyNumber || undefined,
-      insuranceGroupNumber: body.insuranceGroupNumber || undefined,
-      emergencyContactName: body.emergencyContactName || undefined,
-      emergencyContactPhone: body.emergencyContactPhone || undefined,
-      emergencyContactRelation: body.emergencyContactRelation || undefined,
-      notes: body.notes || undefined,
-      createdById: session.user.id,
-    };
-
-    const patient = await PatientService.createPatient(patientData);
+    // Create audit log
+    await prisma.auditLog.create({
+      data: {
+        userId: session.user.id,
+        action: 'PATIENT_CREATED',
+        entityType: 'Patient',
+        entityId: patient.id,
+        newData: patient as any
+      }
+    });
 
     return NextResponse.json(patient, { status: 201 });
   } catch (error: any) {
-    console.error("Error creating patient:", error);
+    console.error('Error creating patient:', error);
     return NextResponse.json(
-      { error: error.message || "Eroare la crearea pacientului" },
+      { error: error.message || 'Failed to create patient' },
       { status: 500 }
     );
   }

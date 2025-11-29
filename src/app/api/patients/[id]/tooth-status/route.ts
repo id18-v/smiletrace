@@ -120,30 +120,50 @@ export async function PATCH(
     const body = await request.json();
     const { teeth } = body; // Array of tooth updates
 
+    if (!Array.isArray(teeth)) {
+      return NextResponse.json(
+        { error: 'Invalid data format - teeth must be an array' },
+        { status: 400 }
+      );
+    }
+
+    console.log(`Saving ${teeth.length} teeth for patient ${id}`);
+
+    // Validate each tooth
+    for (const tooth of teeth) {
+      if (!tooth.toothNumber || !tooth.status) {
+        return NextResponse.json(
+          { error: 'Each tooth must have toothNumber and status' },
+          { status: 400 }
+        );
+      }
+    }
+
     const operations = teeth.map((tooth: any) =>
       prisma.toothStatus.upsert({
         where: {
           patientId_toothNumber: {
             patientId: id,
-            toothNumber: tooth.toothNumber
+            toothNumber: parseInt(tooth.toothNumber)
           }
         },
         update: {
           status: tooth.status,
-          surfaces: tooth.surfaces || [],
-          notes: tooth.notes
+          surfaces: Array.isArray(tooth.surfaces) ? tooth.surfaces : [],
+          notes: tooth.notes || null
         },
         create: {
           patientId: id,
-          toothNumber: tooth.toothNumber,
+          toothNumber: parseInt(tooth.toothNumber),
           status: tooth.status,
-          surfaces: tooth.surfaces || [],
-          notes: tooth.notes
+          surfaces: Array.isArray(tooth.surfaces) ? tooth.surfaces : [],
+          notes: tooth.notes || null
         }
       })
     );
 
-    await Promise.all(operations);
+    const results = await Promise.all(operations);
+    console.log(`Successfully saved ${results.length} teeth`);
 
     // Create audit log
     await prisma.auditLog.create({
@@ -156,11 +176,15 @@ export async function PATCH(
       }
     });
 
-    return NextResponse.json({ success: true });
-  } catch (error) {
+    return NextResponse.json({ 
+      success: true, 
+      count: results.length,
+      message: `Successfully saved ${results.length} teeth` 
+    });
+  } catch (error: any) {
     console.error('Error updating tooth statuses:', error);
     return NextResponse.json(
-      { error: 'Failed to update tooth statuses' },
+      { error: error.message || 'Failed to update tooth statuses' },
       { status: 500 }
     );
   }
