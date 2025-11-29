@@ -216,21 +216,7 @@ export default function PatientDentalChart() {
   return (
     <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
       {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-3">
-          <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg">
-            <Activity className="w-6 h-6 text-blue-600 dark:text-blue-400" />
-          </div>
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900 dark:text-white">
-              Hartă Dentară Pacienți
-            </h1>
-            <p className="text-gray-600 dark:text-gray-400 mt-1">
-              Gestionează starea dentară pentru fiecare pacient
-            </p>
-          </div>
-        </div>
-      </div>
+      
 
       {/* Alert */}
       {alert && (
