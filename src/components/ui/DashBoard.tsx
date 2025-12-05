@@ -66,30 +66,7 @@ export const dashboardLinks: IAppPops[] = [
     ],
   },  
 
-  {
-    id: 3,
-    name: "User Management",
-    href: "/dashboard3/User_Management",
-    icon: User2,
-    subItems: [
-      {
-        id: 31,
-        name: "Teeth Chart",
-        href: "/dashboard3/User_Management/teeth-chart",
-        icon: Calendar,
-      },
-      {
-        id: 32,
-        name: "UserPage",
-        href: "/dashboard3/User_Management/UserPage",
-        icon: User2 ,
-      },
-       
-      
-    
-      
-    ],
-  },
+
   {
     id: 4,
     name: "Settings",
