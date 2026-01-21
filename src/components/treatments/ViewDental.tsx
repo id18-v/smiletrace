@@ -16,7 +16,7 @@ interface ToothData {
 interface SinglePatientDentalChartProps {
   patientId: string;
   patientName?: string;
-}
+} 
 
 const TOOTH_POSITIONS: Record<number, { type: string }> = {
   17: { type: 'molar' }, 18: { type: 'molar' }, 19: { type: 'molar' }, 20: { type: 'premolar' },

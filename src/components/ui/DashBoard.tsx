@@ -11,7 +11,8 @@ import {
   Bell,
   Palette,
   Key,
-  LucideProps
+  LucideProps,
+  UserPlus
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
@@ -42,56 +43,19 @@ export const dashboardLinks: IAppPops[] = [
   
    {
     id: 2,
-    name: "Create User",
+    name: "View Patient",
     href: "/dashboard3/patients",
     icon: User2,
-    subItems: [
-      {
-        id: 31,
-        name: "ViewPatient",
-        href: "/dashboard3/patients",
-        icon: User2,
-      },
-      {
-        id: 33,
-        name: "CreatePatient",
-        href: "/dashboard3/patients/new",
-        icon: Calendar,
-      },
-     
-       
-      
-    
-      
-    ],
   },  
-
-
-  {
-    id: 4,
-    name: "Settings",
-    href: "/dashboard3/settings",
-    icon: Settings,
-    subItems: [
-      {
-        id: 41,
-        name: "ClinicSettings",
-        href: "/dashboard3/settings/ClinicSettings",
-        icon: User2,
-      },
      
-      
-      
-      {
-        id: 42,
-        name: "Utility",
-        href: "/dashboard3/settings/utilities",
-        icon: Palette,
-      },
-      
-    ],
+  {
+    id: 3,
+    name: "Create Patient",
+    href: "/dashboard3/patients/new",
+    icon: UserPlus,
   },
-  
+
+    
 ];
 
 export function DashboardLinks() {
@@ -122,10 +86,10 @@ export function DashboardLinks() {
           {link.subItems ? (
             <button
               onClick={() => toggleDropdown(link.id)}
-              className={`w-full flex items-center justify-between px-3 py-2 mb-1 rounded-lg transition ${
+              className={`w-full flex items-center justify-between px-3 py-3 mb-1 rounded-lg transition ${
                 isParentActive(link)
-                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                ? 'bg-blue-50 dark:bg-[#00816c] text-white text-sm dark:text-white' 
+                : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 text-sm dark:hover:bg-gray-700'
               }`}
             >
               <div className="flex items-center">
@@ -141,10 +105,10 @@ export function DashboardLinks() {
           ) : (
             <button
               onClick={() => router.push(link.href)}
-              className={`w-full flex items-center px-3 py-2 mb-1 rounded-lg transition ${
+              className={`w-full flex items-center px-3 py-3 mb-1 rounded-lg transition ${
                 isActive(link.href)
-                  ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                  : 'text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700'
+                  ? 'bg-blue-500 dark:bg-[#00816c] text-white text-sm dark:text-white'
+                  : 'text-gray-700 dark:text-gray-300 hover:[#00816c] text-sm dark:hover:bg-gray-700'
               }`}
             >
               <link.icon className="w-5 h-5 mr-3" />
@@ -152,25 +116,8 @@ export function DashboardLinks() {
             </button>
           )}
 
-          {/* Dropdown Items */}
-          {link.subItems && openDropdowns.includes(link.id) && (
-            <div className="ml-8 mb-2 space-y-1">
-              {link.subItems.map((subItem) => (
-                <button
-                  key={subItem.id}
-                  onClick={() => router.push(subItem.href)}
-                  className={`w-full flex items-center px-3 py-2 rounded-lg transition text-sm ${
-                    isActive(subItem.href)
-                      ? 'bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400'
-                      : 'text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-700'
-                  }`}
-                >
-                  <subItem.icon className="w-4 h-4 mr-3" />
-                  {subItem.name}
-                </button>
-              ))}
-            </div>
-          )}
+         
+       
         </div>
       ))}
     </>

@@ -51,30 +51,9 @@ export default function AppointmentModal({ isOpen, onClose }: { isOpen: boolean;
       />
 
       {/* Modal Content - mărit și îmbunătățit */}
-      <div className="relative bg-[#2b3544] rounded-xl shadow-2xl w-full max-w-7xl max-h-[95vh] overflow-hidden">
+      <div className="relative  rounded-xl shadow-2xl w-full max-w-7xl max-h-[95vh] overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700/50 bg-[#323948]">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 bg-blue-600 rounded-lg flex items-center justify-center">
-              <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-              </svg>
-            </div>
-            <div>
-              <h2 className="text-xl font-semibold text-white">Gestionare Programări</h2>
-              <p className="text-sm text-gray-400">Vizualizează și sincronizează programările din Cal.com și baza de date</p>
-            </div>
-          </div>
-          
-          <button 
-            onClick={onClose} 
-            className="text-gray-400 hover:text-white transition-colors p-2 hover:bg-gray-700/50 rounded-lg"
-          >
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </div>
+    
 
         {/* Body cu calendar */}
         <div className="p-6 overflow-auto max-h-[calc(95vh-5rem)]">
