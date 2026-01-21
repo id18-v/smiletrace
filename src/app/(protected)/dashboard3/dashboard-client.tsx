@@ -58,7 +58,7 @@ export default  function DashboardContent({ user, children }: DashboardContentPr
       />
 
       {/* Main Content */}
-      <div className="lg:ml-64">
+      <div className="lg:ml-64 flex flex-col min-h-screen">
         {/* Header - DOAR UNUL! */}
         <Header
           mounted={mounted}
@@ -72,7 +72,7 @@ export default  function DashboardContent({ user, children }: DashboardContentPr
         />
            
         {/* Main Content */}
-        <main className="p-6">
+        <main className=" dark:bg-[#020b12] flex-1 w-full">
           {/* Conținutul real */}
        
           {children}

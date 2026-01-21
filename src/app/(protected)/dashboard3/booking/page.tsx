@@ -24,7 +24,8 @@ import {
   CalendarDays,
   Filter,
   Search,
-  ChevronRight
+  ChevronRight,
+  Plus
 } from "lucide-react";
 import AppointmentModal from "@/components/ui/window-calendat";
 
@@ -290,11 +291,11 @@ export default function BookingsPage() {
 
   return (
     <div className="w-full max-w-7xl mx-auto p-6 space-y-6">
-      {/* Header */}
+      
       <div className="mb-8">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="bg-blue-100 dark:bg-blue-900/30 p-3 rounded-lg">
+            <div className="bg-blue-100 dark:bg-[#020b12] p-3 rounded-lg">
               <Calendar className="w-6 h-6 text-blue-600 dark:text-blue-400" />
             </div>
             <div>
@@ -306,74 +307,65 @@ export default function BookingsPage() {
               </p>
             </div>
           </div>
+
           <div className="flex items-center gap-3">
+            {/* Buton Sincronizare */}
             {activeTab === 'calcom' && (
               <button
                 onClick={syncBookingsToDatabase}
                 disabled={syncStatus === 'syncing' || calcomBookings.length === 0}
-                className={`px-4 py-2 rounded-lg flex items-center gap-2 transition-colors ${
+                className={`px-4 py-2.5 rounded-lg flex items-center gap-2 transition-all font-medium text-sm shadow-sm ${
                   syncStatus === 'success' 
                     ? 'bg-green-600 hover:bg-green-700 text-white'
                     : syncStatus === 'error'
                     ? 'bg-red-600 hover:bg-red-700 text-white'
-                    : 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                    : 'bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 border border-gray-300 dark:border-gray-600 hover:bg-gray-50 dark:hover:bg-gray-700'
                 } disabled:opacity-50 disabled:cursor-not-allowed`}
               >
                 {syncStatus === 'syncing' ? (
                   <>
                     <Loader2 className="w-4 h-4 animate-spin" />
-                    Sincronizare...
+                    <span>Sincronizare...</span>
                   </>
                 ) : syncStatus === 'success' ? (
                   <>
                     <CheckCircle className="w-4 h-4" />
-                    Sincronizat!
+                    <span>Sincronizat!</span>
                   </>
                 ) : syncStatus === 'error' ? (
                   <>
                     <XCircle className="w-4 h-4" />
-                    Eroare
+                    <span>Eroare</span>
                   </>
                 ) : (
                   <>
-                    <Activity className="w-4 h-4" />
-                    Sincronizează cu DB
+                    <RefreshCw className="w-4 h-4" />
+                    <span>Sincronizează DB</span>
                   </>
                 )}
               </button>
             )}
             
-
-            <div>
-      <button
-        onClick={() => setIsModalOpen(true)}
-        className="px-6 h-[60px] py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-      >
-        Creare Programare
-      </button>
-      
-
-
-      <AppointmentModal
-        isOpen={isModalOpen}
-        onClose={() => setIsModalOpen(false)}
-      />
-    </div>
-    <button
-              onClick={() => activeTab === 'calcom' ? fetchCalcomBookings() : fetchDatabaseAppointments()}
-              disabled={loading}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 dark:bg-blue-500 dark:hover:bg-blue-600 text-white rounded-lg flex items-center gap-2 transition-colors disabled:opacity-50"
+            {/* Buton Creare Programare */}
+            <button
+              onClick={() => setIsModalOpen(true)}
+              className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2 font-medium text-sm shadow-sm hover:shadow-md"
             >
-              <RefreshCw className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} />
-              
+              <Plus className="w-4 h-4" />
+              <span>Creare Programare</span>
             </button>
+
+            <AppointmentModal
+              isOpen={isModalOpen}
+              onClose={() => setIsModalOpen(false)}
+            />
           </div>
         </div>
       </div>
-
+     
       {/* Analytics Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-[#020f18] rounded-xl shadow-sm p-4 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Total Programări</p>
@@ -385,7 +377,7 @@ export default function BookingsPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-[#020f18] rounded-xl shadow-sm p-4 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Confirmate</p>
@@ -397,7 +389,7 @@ export default function BookingsPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-[#020f18] rounded-xl shadow-sm p-4 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">În Așteptare</p>
@@ -409,7 +401,7 @@ export default function BookingsPage() {
           </div>
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-4 border border-gray-200 dark:border-gray-700">
+        <div className="bg-white dark:bg-[#020f18] rounded-xl shadow-sm p-4 border border-gray-200 dark:border-gray-700">
           <div className="flex items-center justify-between">
             <div>
               <p className="text-sm font-medium text-gray-600 dark:text-gray-400">Status Webhook</p>
@@ -446,7 +438,7 @@ export default function BookingsPage() {
                 onClick={() => setActiveTab(tab.id)}
                 className={`pb-4 px-1 border-b-2 font-medium text-sm transition-colors flex items-center gap-2 ${
                   activeTab === tab.id
-                    ? 'border-blue-500 text-blue-600 dark:text-blue-400'
+                    ? 'border-blue-500 text-blue-600 dark:[#00447b]'
                     : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200'
                 }`}
               >
@@ -455,7 +447,7 @@ export default function BookingsPage() {
                 {tab.count !== undefined && (
                   <span className={`ml-2 px-2 py-0.5 text-xs rounded-full ${
                     activeTab === tab.id
-                      ? 'bg-blue-100 text-blue-600 dark:bg-blue-900/30 dark:text-blue-400'
+                      ? 'bg-blue-100 text-blue-600 dark:bg-[#00806f] dark:text-white'
                       : 'bg-gray-100 text-gray-600 dark:bg-gray-700 dark:text-gray-400'
                   }`}>
                     {tab.count}
@@ -477,15 +469,14 @@ export default function BookingsPage() {
               placeholder="Caută după nume, email sau motiv..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full pl-10 pr-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-white"
+              className="w-full pl-10 pr-3 py-2 bg-white dark:bg-[#020f18] border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-white"
             />
           </div>
           <div className="flex items-center gap-2">
-            <Filter className="w-4 h-4 text-gray-400" />
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="px-3 py-2 bg-white dark:bg-gray-800 border border-gray-300 dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-white"
+              className="px-3 py-2 bg-white dark:bg-[#020f18] border border-gray-300 dark:border-border/50 rounded-lg focus:ring-2 focus:ring-blue-500 dark:focus:ring-blue-400 text-gray-900 dark:text-white"
             >
               <option value="all">Toate Statusurile</option>
               <option value="accepted">Confirmate</option>
@@ -498,12 +489,12 @@ export default function BookingsPage() {
       )}
 
       {/* Tab Content */}
-      <div className="bg-white dark:bg-gray-800 rounded-xl shadow-sm p-6">
+      <div className="bg-white dark:bg-[#020f18] rounded-xl shadow-sm p-6">
         {/* Cal.com Bookings Tab */}
         {activeTab === 'calcom' && (
           <div>
             <div className="flex items-center justify-between mb-6">
-              <h2 className="text-xl font-semibold text-gray-800 dark:text-white">
+              <h2 className="   text-base  text-white font-semibold">
                 Programări Cal.com
               </h2>
               <div className="flex items-center gap-2 text-sm text-gray-500 dark:text-gray-400">
@@ -756,7 +747,7 @@ export default function BookingsPage() {
                               <h3 className="font-semibold text-gray-900 dark:text-white mb-4">Rezumat General</h3>
                               <div className="space-y-3">
                                 <div className="flex justify-between">
-                                  <span className="text-gray-600 dark:text-gray-400">Total programări Cal.com:</span>
+                                  <span className="text-gray-600 dark:text-[#020f18]">Total programări Cal.com:</span>
                                   <span className="font-medium text-gray-900 dark:text-white">{calcomBookings.length}</span>
                                 </div>
                                 <div className="flex justify-between">

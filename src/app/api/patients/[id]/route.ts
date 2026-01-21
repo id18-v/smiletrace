@@ -1,17 +1,14 @@
-// src/app/api/patients/[id]/tooth-status/route.ts
+// src/app/api/patients/[id]/route.ts
 import { NextRequest, NextResponse } from 'next/server';
 import { auth } from '@/lib/auth';
 import prisma from '@/lib/db';
 
-// ✅ UPDATED FOR NEXT.JS 15: params is now a Promise
 export async function GET(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ UPDATED: await params to get the actual values
     const { id } = await params;
-    
     const session = await auth();
 
     if (!session?.user) {
@@ -21,30 +18,34 @@ export async function GET(
       );
     }
 
-    const toothStatuses = await prisma.toothStatus.findMany({
-      where: { patientId: id },
-      orderBy: { toothNumber: 'asc' }
+    const patient = await prisma.patient.findUnique({
+      where: { id },
     });
 
-    return NextResponse.json(toothStatuses);
+    if (!patient) {
+      return NextResponse.json(
+        { error: 'Pacient negăsit' },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(patient);
   } catch (error) {
-    console.error('Error fetching tooth statuses:', error);
+    console.error('Error fetching patient:', error);
     return NextResponse.json(
-      { error: 'Failed to fetch tooth statuses' },
+      { error: 'Failed to fetch patient' },
       { status: 500 }
     );
   }
 }
 
-// POST - Salvează/actualizează starea unui dinte
-export async function POST(
+// PUT - Actualizează DOAR câmpurile trimise (cu curățare stringuri goale)
+export async function PUT(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ UPDATED: await params to get the actual values
     const { id } = await params;
-    
     const session = await auth();
 
     if (!session?.user) {
@@ -55,126 +56,65 @@ export async function POST(
     }
 
     const body = await request.json();
-    const { toothNumber, status, surfaces, notes } = body;
-
-    const toothStatus = await prisma.toothStatus.upsert({
-      where: {
-        patientId_toothNumber: {
-          patientId: id,
-          toothNumber: toothNumber
-        }
-      },
-      update: {
-        status,
-        surfaces: surfaces || [],
-        notes
-      },
-      create: {
-        patientId: id,
-        toothNumber,
-        status,
-        surfaces: surfaces || [],
-        notes
-      }
-    });
-
-    // Create audit log
-    await prisma.auditLog.create({
-      data: {
-        userId: session.user.id,
-        action: 'TOOTH_STATUS_UPDATED',
-        entityType: 'ToothStatus',
-        entityId: toothStatus.id,
-        newData: toothStatus as any,
-      }
-    });
-
-    return NextResponse.json(toothStatus);
-  } catch (error) {
-    console.error('Error saving tooth status:', error);
-    return NextResponse.json(
-      { error: 'Failed to save tooth status' },
-      { status: 500 }
-    );
-  }
-}
-
-// PATCH - Actualizează mai mulți dinți deodată
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: Promise<{ id: string }> }
-) {
-  try {
-    // ✅ UPDATED: await params to get the actual values
-    const { id } = await params;
     
-    const session = await auth();
+    // Construiește obiectul de update curățând valorile
+    const updateData: any = {};
+    
+    Object.keys(body).forEach(key => {
+      const value = body[key];
+      
+      // Ignoră undefined
+      if (value === undefined) return;
+      
+      // Pentru stringuri: tratează stringurile goale ca null
+      if (typeof value === 'string' && value.trim() === '') {
+        updateData[key] = null;
+        return;
+      }
+      
+      // Pentru arrays goale: păstrează-le (e.g., allergies: [])
+      // Pentru booleans: păstrează-le
+      // Pentru restul: adaugă valoarea
+      updateData[key] = value;
+    });
 
-    if (!session?.user) {
-      return NextResponse.json(
-        { error: 'Nu ești autentificat' },
-        { status: 401 }
-      );
+    // Convertește data la format Date dacă există și e validă
+    if (updateData.dateOfBirth) {
+      updateData.dateOfBirth = new Date(updateData.dateOfBirth);
     }
 
-    const body = await request.json();
-    const { teeth } = body; // Array of tooth updates
-
-    const operations = teeth.map((tooth: any) =>
-      prisma.toothStatus.upsert({
-        where: {
-          patientId_toothNumber: {
-            patientId: id,
-            toothNumber: tooth.toothNumber
-          }
-        },
-        update: {
-          status: tooth.status,
-          surfaces: tooth.surfaces || [],
-          notes: tooth.notes
-        },
-        create: {
-          patientId: id,
-          toothNumber: tooth.toothNumber,
-          status: tooth.status,
-          surfaces: tooth.surfaces || [],
-          notes: tooth.notes
-        }
-      })
-    );
-
-    await Promise.all(operations);
+    const updatedPatient = await prisma.patient.update({
+      where: { id },
+      data: updateData,
+    });
 
     // Create audit log
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
-        action: 'TOOTH_STATUS_BULK_UPDATE',
-        entityType: 'ToothStatus',
-        entityId: id,
-        newData: { teethCount: teeth.length, teeth } as any,
+        action: 'PATIENT_UPDATED',
+        entityType: 'Patient',
+        entityId: updatedPatient.id,
+        newData: updateData as any,
       }
     });
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json(updatedPatient);
   } catch (error) {
-    console.error('Error updating tooth statuses:', error);
+    console.error('Error updating patient:', error);
     return NextResponse.json(
-      { error: 'Failed to update tooth statuses' },
+      { error: 'Failed to update patient' },
       { status: 500 }
     );
   }
 }
 
-// DELETE - Resetează starea unui dinte la HEALTHY
 export async function DELETE(
   request: NextRequest,
   { params }: { params: Promise<{ id: string }> }
 ) {
   try {
-    // ✅ UPDATED: await params to get the actual values
     const { id } = await params;
-    
     const session = await auth();
 
     if (!session?.user) {
@@ -184,41 +124,25 @@ export async function DELETE(
       );
     }
 
-    const { searchParams } = new URL(request.url);
-    const toothNumber = searchParams.get('toothNumber');
-
-    if (!toothNumber) {
-      return NextResponse.json(
-        { error: 'Tooth number required' },
-        { status: 400 }
-      );
-    }
-
-    const deletedTooth = await prisma.toothStatus.delete({
-      where: {
-        patientId_toothNumber: {
-          patientId: id,
-          toothNumber: parseInt(toothNumber)
-        }
-      }
+    const deletedPatient = await prisma.patient.delete({
+      where: { id },
     });
 
-    // Create audit log
     await prisma.auditLog.create({
       data: {
         userId: session.user.id,
-        action: 'TOOTH_STATUS_DELETED',
-        entityType: 'ToothStatus',
-        entityId: deletedTooth.id,
-        oldData: deletedTooth as any,
+        action: 'PATIENT_DELETED',
+        entityType: 'Patient',
+        entityId: deletedPatient.id,
+        oldData: deletedPatient as any,
       }
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('Error deleting tooth status:', error);
+    console.error('Error deleting patient:', error);
     return NextResponse.json(
-      { error: 'Failed to delete tooth status' },
+      { error: 'Failed to delete patient' },
       { status: 500 }
     );
   }
