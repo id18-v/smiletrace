@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack",
-    "build": "prisma generate && next build",
+   "dev": "tsx scripts/compiler.ts && next dev --turbopack",
+    "build": "prisma generate && tsx scripts/compiler.ts && next build",
     "start": "next start",
     "lint": "next lint",
     "postinstall": "prisma generate",
